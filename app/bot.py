@@ -52,7 +52,7 @@ dp.include_router(admin.router)
 
 # Handle cached statement errors globally
 @dp.error()
-async def handle_cached_statement_error(event_type, telegram_update, exception):
+async def handle_cached_statement_error(update, exception):
     if "InvalidCachedStatementError" in str(exception) or "cached statement plan is invalid" in str(exception):
         logger.info("🔄 Detected cached statement error, this should resolve automatically")
         # Don't handle - let SQLAlchemy retry with fresh connection

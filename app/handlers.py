@@ -30,6 +30,42 @@ from app.database import async_session
 router = Router()
 logger = logging.getLogger(__name__)
 
+# Безопасное редактирование сообщения
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None, parse_mode=None):
+    """Безопасно редактирует сообщение, обрабатывая ошибки"""
+    try:
+        if callback.message.text:
+            await callback.message.edit_text(
+                text, 
+                reply_markup=reply_markup, 
+                parse_mode=parse_mode
+            )
+        elif callback.message.caption:
+            await callback.message.edit_caption(
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+        else:
+            # Если нет текста и caption, отправляем новое сообщение
+            await callback.message.answer(
+                text,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        # Если не получилось редактировать, отправляем новое сообщение
+        try:
+            await callback.message.answer(
+                text,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+        except Exception as e2:
+            logger.error(f"Error sending new message: {e2}")
+            await callback.answer("Произошла ошибка, попробуй еще раз")
+
 # Функция проверки режима технических работ
 async def check_maintenance(message: Message):
     if MAINTENANCE_MODE and message.from_user.id not in Config.ADMIN_IDS:
@@ -273,12 +309,13 @@ async def show_my_rating(callback: CallbackQuery):
         ratings = ratings_result.scalars().all()
         
         if not ratings:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "📊 <b>Твоя оценка:</b>\n\n"
                 "У тебя пока нет оценок от других пользователей.\n"
                 "Оценивай других, чтобы получал оценки в ответ!",
-                parse_mode=ParseMode.HTML,
-                reply_markup=get_profile_edit_keyboard()
+                reply_markup=get_profile_edit_keyboard(),
+                parse_mode="HTML"
             )
             return
         
@@ -306,10 +343,11 @@ async def show_my_rating(callback: CallbackQuery):
                 f"💖 APPEAL: {profile.appeal_rating:.1f}/10"
             )
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             text,
-            parse_mode=ParseMode.HTML,
-            reply_markup=get_profile_edit_keyboard()
+            reply_markup=get_profile_edit_keyboard(),
+            parse_mode="HTML"
         )
     await callback.answer()
 
@@ -330,7 +368,8 @@ async def start_search(callback: CallbackQuery):
         profiles = await get_search_profiles(session, user.id, limit=10)
         
         if not profiles:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "Пока нет подходящих анкет 😔\nПопробуй позже или оценивай других пользователей!",
                 reply_markup=get_back_keyboard()
             )
@@ -345,7 +384,8 @@ async def show_next_profile(callback: CallbackQuery, session: AsyncSession):
     profiles = search_cache.get(user_id, [])
     
     if not profiles:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             "Анкеты закончились 😔\nПопробуй позже!",
             reply_markup=get_back_keyboard()
         )
