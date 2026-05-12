@@ -1,0 +1,2 @@
+# This file ensures /app/data directory is not empty
+# Bothost.ru keeps persistent storage only if directory contains files

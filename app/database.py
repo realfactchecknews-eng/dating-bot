@@ -23,6 +23,11 @@ async def init_db():
     data_dir = Path(Config.DATA_DIR)
     data_dir.mkdir(parents=True, exist_ok=True)
     
+    # Создаем .gitkeep файл, чтобы bothost.ru не отключал хранилище
+    gitkeep_path = data_dir / ".gitkeep"
+    if not gitkeep_path.exists():
+        gitkeep_path.write_text("# Persistent storage marker\n")
+    
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
