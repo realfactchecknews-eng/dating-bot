@@ -48,20 +48,8 @@ async def get_or_create_user(session: AsyncSession, telegram_id: int, username: 
     # Convert telegram_id to Python int to handle large values
     telegram_id = int(telegram_id)
     
-    try:
-        result = await session.execute(select(User).where(User.telegram_id == telegram_id))
-        user = result.scalar_one_or_none()
-    except Exception as e:
-        # Handle cached statement errors after migration
-        if "InvalidCachedStatementError" in str(e) or "cached statement plan is invalid" in str(e):
-            logger.info("🔄 Clearing session cache due to schema change...")
-            await session.close()
-            # Create new session
-            from app.database import async_session
-            async with async_session() as new_session:
-                return await get_or_create_user(new_session, telegram_id, username)
-        else:
-            raise
+    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
+    user = result.scalar_one_or_none()
     
     if not user:
         try:
