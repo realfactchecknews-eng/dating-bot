@@ -420,16 +420,124 @@ async def start_search(callback: CallbackQuery):
         logger.info(f"Found {len(profiles)} profiles for user {user.id}")
         
         if not profiles:
-            await safe_edit_message(
-                callback,
-                "Пока нет подходящих анкет 😔\nПопробуй позже или оценивай других пользователей!",
-                reply_markup=get_back_keyboard()
-            )
-            await callback.answer()
-            return
+            # Создаем тестовых пользователей если их нет
+            await create_test_users(session)
+            
+            # Пробуем поиск снова
+            profiles = await get_search_profiles(session, user.id, limit=10)
+            logger.info(f"After creating test users: Found {len(profiles)} profiles for user {user.id}")
+            
+            if not profiles:
+                await safe_edit_message(
+                    callback,
+                    "Пока нет подходящих анкет 😔\nПопробуй позже или оценивай других пользователей!",
+                    reply_markup=get_back_keyboard()
+                )
+                await callback.answer()
+                return
         
         search_cache[callback.from_user.id] = profiles
         await show_next_profile(callback, session)
+
+async def create_test_users(session: AsyncSession):
+    """Создает тестовых пользователей для демонстрации"""
+    from app.models import User, Profile
+    from datetime import datetime
+    
+    # Проверяем есть ли уже тестовые пользователи
+    existing_test = await session.execute(
+        select(User).where(User.username.like("test_%"))
+    )
+    if existing_test.scalar_one_or_none():
+        logger.info("Test users already exist")
+        return
+    
+    logger.info("Creating test users...")
+    
+    # Создаем тестовых пользователей с разными профилями
+    test_users = [
+        {
+            "telegram_id": 999999901,
+            "username": "test_anna",
+            "name": "Анна",
+            "age": 25,
+            "gender": "female",
+            "orientation": "straight",
+            "city": "Москва",
+            "bio": "Люблю путешествия и фотография 📸"
+        },
+        {
+            "telegram_id": 999999902,
+            "username": "test_maria",
+            "name": "Мария",
+            "age": 23,
+            "gender": "female", 
+            "orientation": "straight",
+            "city": "Санкт-Петербург",
+            "bio": "Студентка, люблю книги и кофе ☕"
+        },
+        {
+            "telegram_id": 999999903,
+            "username": "test_olga",
+            "name": "Ольга",
+            "age": 28,
+            "gender": "female",
+            "orientation": "bisexual",
+            "city": "Казань",
+            "bio": "Йога и здоровое питание 🧘‍♀️"
+        },
+        {
+            "telegram_id": 999999904,
+            "username": "test_ekaterina",
+            "name": "Екатерина",
+            "age": 26,
+            "gender": "female",
+            "orientation": "straight",
+            "city": "Новосибирск",
+            "bio": "Маркетолог, люблю дизайн и искусство 🎨"
+        },
+        {
+            "telegram_id": 999999905,
+            "username": "test_daria",
+            "name": "Дарья",
+            "age": 24,
+            "gender": "female",
+            "orientation": "straight",
+            "city": "Екатеринбург",
+            "bio": "Волонтер, люблю животных 🐕"
+        }
+    ]
+    
+    for test_data in test_users:
+        # Создаем пользователя
+        test_user = User(
+            telegram_id=test_data["telegram_id"],
+            username=test_data["username"],
+            is_active=True,
+            is_banned=False,
+            created_at=datetime.utcnow(),
+            last_activity=datetime.utcnow()
+        )
+        session.add(test_user)
+        await session.flush()  # Получаем ID
+        
+        # Создаем профиль
+        test_profile = Profile(
+            user_id=test_user.id,
+            name=test_data["name"],
+            age=test_data["age"],
+            gender=test_data["gender"],
+            orientation=test_data["orientation"],
+            city=test_data["city"],
+            bio=test_data["bio"],
+            photos=None,  # Можно добавить фото позже
+            is_visible=True,
+            created_at=datetime.utcnow()
+        )
+        session.add(test_profile)
+    
+    await session.commit()
+    logger.info(f"Created {len(test_users)} test users")
 
 async def show_next_profile(callback: CallbackQuery, session: AsyncSession):
     user_id = callback.from_user.id
