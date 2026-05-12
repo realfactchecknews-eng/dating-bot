@@ -630,7 +630,10 @@ async def toggle_visibility(callback: CallbackQuery):
 # Обработчики редактирования профиля
 @router.callback_query(F.data.startswith("edit_"))
 async def edit_profile_field(callback: CallbackQuery, state: FSMContext):
+    logger.info(f"Edit profile callback: {callback.data}")
+    
     field = callback.data.split("_")[1]
+    logger.info(f"Field to edit: {field}")
     
     if field == "name":
         await callback.message.edit_text("Введи новое имя:")
@@ -648,12 +651,18 @@ async def edit_profile_field(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("Отправь новые фото (до 5 штук):")
         await state.set_state(ProfileEditStates.edit_photos)
         await state.update_data(photos=[])
+    else:
+        logger.error(f"Unknown field: {field}")
+        await callback.answer("Ошибка: неизвестное поле")
+        return
     
     await state.update_data(edit_field=field)
     await callback.answer()
 
 @router.message(ProfileEditStates.edit_name)
 async def process_edit_name(message: Message, state: FSMContext):
+    logger.info(f"Processing edit name: {message.text}")
+    
     if len(message.text) > 100:
         await message.answer("Слишком длинно. Максимум 100 символов:")
         return
@@ -664,6 +673,9 @@ async def process_edit_name(message: Message, state: FSMContext):
             profile.name = message.text
             await session.commit()
             await message.answer("✅ Имя обновлено!", reply_markup=get_main_menu_keyboard())
+        else:
+            logger.error(f"Profile not found for user {message.from_user.id}")
+            await message.answer("Ошибка: профиль не найден")
     
     await state.clear()
 
