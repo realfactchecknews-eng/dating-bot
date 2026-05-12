@@ -29,7 +29,7 @@ from app.database import async_session
 
 router = Router()
 logger = logging.getLogger(__name__)
-# Fixed version: 2.3 - duplicate rating fix
+# Fixed version: 3.0 - final syntax fixes - all indentation errors resolved
 
 # Безопасное редактирование сообщения
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None, parse_mode=None):
