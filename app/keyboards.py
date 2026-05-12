@@ -101,8 +101,9 @@ def get_admin_keyboard():
     builder.button(text="🚫 Забанить", callback_data="admin_ban")
     builder.button(text="✅ Разбанить", callback_data="admin_unban")
     builder.button(text="📋 Список пользователей", callback_data="admin_users")
-    builder.button(text="🔙 Назад", callback_data="main_menu")
-    builder.adjust(2, 2, 2, 1)
+    builder.button(text="� Репорты", callback_data="admin_reports")
+    builder.button(text="�🔙 Назад", callback_data="main_menu")
+    builder.adjust(2, 2, 2, 2)
     return builder.as_markup()
 
 def get_back_keyboard():
@@ -169,4 +170,23 @@ def get_report_keyboard():
     builder.button(text="📄 Другое", callback_data="report_other")
     builder.button(text="🔙 Назад", callback_data="main_menu")
     builder.adjust(2, 2, 1)
+    return builder.as_markup()
+
+def get_reports_list_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔄 Обновить", callback_data="admin_reports")
+    builder.button(text="✅ Решённые", callback_data="admin_resolved_reports")
+    builder.button(text="🔙 Назад", callback_data="admin_panel")
+    builder.adjust(2, 1)
+    return builder.as_markup()
+
+def get_report_detail_keyboard(report_id: int, is_resolved: bool):
+    builder = InlineKeyboardBuilder()
+    if not is_resolved:
+        builder.button(text="💬 Ответить", callback_data=f"reply_report_{report_id}")
+        builder.button(text="✅ Отметить решённым", callback_data=f"resolve_report_{report_id}")
+    else:
+        builder.button(text="🔄 Переоткрыть", callback_data=f"reopen_report_{report_id}")
+    builder.button(text="🔙 Назад", callback_data="admin_reports")
+    builder.adjust(2 if not is_resolved else 1, 1)
     return builder.as_markup()

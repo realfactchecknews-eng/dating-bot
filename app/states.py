@@ -38,3 +38,6 @@ class ChatStates(StatesGroup):
 class ReportStates(StatesGroup):
     type = State()
     message = State()
+
+class AdminReportStates(StatesGroup):
+    reply = State()
