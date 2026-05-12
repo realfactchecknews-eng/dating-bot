@@ -266,6 +266,47 @@ async def admin_users(callback: CallbackQuery):
         )
     await callback.answer()
 
+@router.callback_query(F.data == "admin_clear_photos")
+async def admin_clear_photos(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Нет доступа!")
+        return
+    
+    async with async_session() as session:
+        # Получаем все профили с фото
+        result = await session.execute(select(Profile).where(Profile.photos.isnot(None)))
+        profiles = result.scalars().all()
+        
+        cleared_count = 0
+        for profile in profiles:
+            if profile.photos:
+                # Фильтруем только валидные file_id
+                valid_photos = []
+                for photo in profile.photos:
+                    # Если это локальный путь, пропускаем
+                    if '/' in photo or '.' in photo or photo.startswith('photos/'):
+                        continue
+                    # Если это file_id, оставляем
+                    if photo.startswith('AgACAgIAAxk') or len(photo) > 20:
+                        valid_photos.append(photo)
+                
+                # Обновляем профиль
+                await session.execute(
+                    update(Profile).where(Profile.id == profile.id).values(photos=valid_photos)
+                )
+                cleared_count += len(profile.photos) - len(valid_photos)
+        
+        await session.commit()
+        
+        await callback.message.edit_text(
+            f"🧹 <b>Очистка завершена!</b>\n\n"
+            f"Удалено некорректных путей: {cleared_count}\n"
+            f"Обработано профилей: {len(profiles)}",
+            parse_mode="HTML",
+            reply_markup=get_admin_keyboard()
+        )
+    await callback.answer("Фото очищены!")
+
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
     if not is_admin(message.from_user.id):

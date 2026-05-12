@@ -95,11 +95,12 @@ def get_admin_keyboard():
     builder = InlineKeyboardBuilder()
     builder.button(text="📊 Статистика", callback_data="admin_stats")
     builder.button(text="📢 Рассылка", callback_data="admin_broadcast")
+    builder.button(text="🧹 Очистить фото", callback_data="admin_clear_photos")
     builder.button(text="🚫 Забанить", callback_data="admin_ban")
     builder.button(text="✅ Разбанить", callback_data="admin_unban")
     builder.button(text="📋 Список пользователей", callback_data="admin_users")
     builder.button(text="🔙 Назад", callback_data="main_menu")
-    builder.adjust(2, 2, 1, 1)
+    builder.adjust(2, 2, 2, 1)
     return builder.as_markup()
 
 def get_back_keyboard():
