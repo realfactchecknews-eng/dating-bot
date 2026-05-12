@@ -152,15 +152,19 @@ async def create_match(session: AsyncSession, user1_id: int, user2_id: int):
 
 async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter: str = None, 
                              orientation_filter: str = None, limit: int = 10):
+    logger.info(f"Searching profiles for user {user_id}")
+    
     user_result = await session.execute(
         select(User, Profile).join(Profile).where(User.id == user_id)
     )
     user_data = user_result.one_or_none()
     
     if not user_data:
+        logger.info(f"User {user_id} not found or has no profile")
         return []
     
     user, profile = user_data
+    logger.info(f"User {user_id} profile: gender={profile.gender}, orientation={profile.orientation}")
     
     # Получаем ID пользователей, которым уже ставили лайк/дизлайк
     liked_result = await session.execute(
@@ -211,6 +215,7 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
     
     result = await session.execute(query)
     profiles = result.all()
+    logger.info(f"Found {len(profiles)} profiles with filters")
     
     # Если не нашли новых анкет, убираем фильтр лайкнутых и возвращаем случайные (включая повторные)
     if not profiles:
@@ -254,6 +259,7 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
         query = query.order_by(func.random()).limit(limit)
         result = await session.execute(query)
         profiles = result.all()
+        logger.info(f"Found {len(profiles)} profiles without liked filter")
     
     return profiles
 
