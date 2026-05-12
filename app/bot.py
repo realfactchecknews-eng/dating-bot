@@ -15,6 +15,7 @@ os.makedirs("logs", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 os.makedirs("photos", exist_ok=True)
 
+# Configure logging to prevent recursion errors
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -23,6 +24,10 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Disable SQLAlchemy parameter logging to prevent recursion errors
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=Config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))

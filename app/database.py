@@ -8,7 +8,9 @@ Base = declarative_base()
 
 engine = create_async_engine(
     Config.DATABASE_URL,
-    echo=Config.DEBUG,
+    echo=False,  # Disable SQL logging to prevent recursion errors
+    pool_pre_ping=True,
+    pool_recycle=3600,
     future=True,
     connect_args={"server_settings": {"application_name": "dating_bot"}}
 )
