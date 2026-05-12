@@ -141,3 +141,14 @@ class Message(Base):
         Index('idx_message_from_to', 'from_user_id', 'to_user_id'),
         Index('idx_message_created', 'created_at'),
     )
+
+class Report(Base):
+    __tablename__ = "reports"
+    
+    id = Column(Integer, primary_key=True)
+    from_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reported_user_id = Column(Integer, ForeignKey("users.id"))
+    message = Column(Text, nullable=False)
+    report_type = Column(String(50), default="bug")  # bug, user, profile, other
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_resolved = Column(Boolean, default=False)

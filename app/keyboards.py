@@ -8,10 +8,11 @@ def get_main_menu_keyboard(is_admin=False):
     builder.button(text="⭐ Оценивать", callback_data="rate_profiles")
     builder.button(text="🔔 Мэтчи", callback_data="my_matches")
     builder.button(text="📰 Новости", callback_data="news")
+    builder.button(text="🚨 Репорт", callback_data="report")
     builder.button(text="⚙️ Настройки", callback_data="settings")
     if is_admin:
         builder.button(text="🔧 Админ", callback_data="admin_panel")
-    builder.adjust(2, 2, 2)
+    builder.adjust(2, 2, 2, 1)
     return builder.as_markup()
 
 def get_registration_keyboard():
@@ -158,4 +159,14 @@ def get_chat_keyboard(chat_user_id: int, is_anonymous: bool = False):
         builder.button(text="🎭 Анонимно", callback_data=f"toggle_anonymous_{chat_user_id}")
     builder.button(text="🔙 Назад", callback_data="my_matches")
     builder.adjust(1, 1)
+    return builder.as_markup()
+
+def get_report_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🐛 Баг/Ошибка", callback_data="report_bug")
+    builder.button(text="👤 Жалоба на пользователя", callback_data="report_user")
+    builder.button(text="📝 Проблема с профилем", callback_data="report_profile")
+    builder.button(text="📄 Другое", callback_data="report_other")
+    builder.button(text="🔙 Назад", callback_data="main_menu")
+    builder.adjust(2, 2, 1)
     return builder.as_markup()

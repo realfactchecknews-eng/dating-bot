@@ -34,3 +34,7 @@ class NewsStates(StatesGroup):
 
 class ChatStates(StatesGroup):
     messaging = State()
+
+class ReportStates(StatesGroup):
+    type = State()
+    message = State()

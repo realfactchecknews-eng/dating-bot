@@ -8,15 +8,15 @@ from aiogram.enums import ParseMode
 from sqlalchemy import select, and_, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.states import RegistrationStates, ProfileEditStates, RatingStates, AdminStates, SearchStates, NewsStates, ChatStates
-from app.models import User, Profile, Rating, Like, Match, News, Message
+from app.states import RegistrationStates, ProfileEditStates, RatingStates, AdminStates, SearchStates, NewsStates, ChatStates, ReportStates
+from app.models import User, Profile, Rating, Like, Match, News, Message, Report
 from app.keyboards import (
     get_main_menu_keyboard, get_registration_keyboard, get_gender_keyboard,
     get_orientation_keyboard, get_psl_rating_keyboard, get_appeal_rating_keyboard,
     get_search_action_keyboard, get_rating_keyboard, get_profile_edit_keyboard,
     get_confirm_keyboard, get_settings_keyboard, get_admin_keyboard,
     get_back_keyboard, get_matches_keyboard, get_skip_keyboard, get_rating_result_keyboard,
-    get_news_keyboard, get_news_management_keyboard, get_chat_keyboard
+    get_news_keyboard, get_news_management_keyboard, get_chat_keyboard, get_report_keyboard
 )
 from app.utils import (
     get_or_create_user, get_profile_by_telegram_id, format_profile_text,
@@ -1011,6 +1011,127 @@ async def list_news(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=get_news_management_keyboard()
         )
+    await callback.answer()
+
+# Обработчики для репортов
+@router.callback_query(F.data == "report")
+async def show_report_menu(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "🚨 <b>Выбери тип репорта:</b>\n\n"
+        "Опиши проблему или ошибку, с которой столкнулся.",
+        parse_mode="HTML",
+        reply_markup=get_report_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("report_"))
+async def handle_report_type(callback: CallbackQuery, state: FSMContext):
+    report_type = callback.data.split("_")[1]
+    
+    type_messages = {
+        "bug": "🐛 Опиши баг или ошибку:",
+        "user": "👤 Укажи ID пользователя и опиши проблему:",
+        "profile": "📝 Опиши проблему с профилем:",
+        "other": "📄 Опиши твою проблему:"
+    }
+    
+    await state.update_data(report_type=report_type)
+    await callback.message.answer(type_messages.get(report_type, "Опиши проблему:"))
+    await state.set_state(ReportStates.message)
+    await callback.answer()
+
+@router.message(ReportStates.message)
+async def handle_report_message(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    report_type = data.get("report_type", "other")
+    
+    async with async_session() as session:
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == message.from_user.id)
+        )
+        user = user_result.scalar_one()
+        
+        # Создаем репорт
+        report = Report(
+            from_user_id=user.id,
+            message=message.text,
+            report_type=report_type
+        )
+        session.add(report)
+        await session.commit()
+        
+        # Отправляем уведомление админу
+        admin_text = (
+            f"🚨 <b>Новый репорт!</b>\n\n"
+            f"👤 От: @{message.from_user.username or 'пользователь'} (ID: {message.from_user.id})\n"
+            f"📝 Тип: {report_type}\n"
+            f"💬 Сообщение: {message.text}\n"
+            f"🕐 Время: {report.created_at.strftime('%d.%m.%Y %H:%M')}"
+        )
+        
+        try:
+            await bot.send_message(1031760975, admin_text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Failed to send report notification: {e}")
+        
+        await message.answer(
+            "✅ Репорт отправлен! Спасибо за помощь в улучшении бота.",
+            reply_markup=get_main_menu_keyboard()
+        )
+    
+    await state.clear()
+
+# Исправление бага с кнопкой "Оценивать дальше"
+@router.callback_query(F.data == "rate_profiles")
+async def start_rating(callback: CallbackQuery, state: FSMContext):
+    async with async_session() as session:
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == callback.from_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            await callback.answer("Сначала создай профиль!")
+            return
+        
+        # Всегда ищем новую анкету для оценки
+        result = await get_random_profile_for_rating(session, user.id)
+        
+        if not result:
+            await callback.message.edit_text(
+                "😔 <b>Анкет для оценки нет!</b>\n\n"
+                "Попробуй позже или пригласи друзей в бот!\n\n"
+                "📢 Хочешь больше анкет? Приглашай друзей — чем больше пользователей, тем больше анкет для оценки!",
+                parse_mode="HTML",
+                reply_markup=get_back_keyboard()
+            )
+            await callback.answer()
+            return
+        
+        profile, target_user = result
+        rating_cache[callback.from_user.id] = target_user.id
+        
+        text = format_profile_text(profile, target_user)
+        text += "\n\n<b>Оцени по шкале 1-10:</b>"
+        
+        await callback.message.delete()
+        
+        if profile.photos:
+            photo_file_id = profile.photos[0]
+            await callback.bot.send_photo(
+                callback.from_user.id,
+                photo=photo_file_id,
+                caption=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_rating_keyboard(target_user.id)
+            )
+        else:
+            await callback.bot.send_message(
+                callback.from_user.id,
+                text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_rating_keyboard(target_user.id)
+            )
     await callback.answer()
 
 @router.callback_query(F.data == "delete_profile")
