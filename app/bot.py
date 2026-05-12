@@ -48,11 +48,17 @@ async def on_startup():
             
             if current_type == 'integer':
                 logger.info("🔄 Auto-migrating telegram_id from INTEGER to BIGINT...")
+                # First convert to BIGINT using USBIGINT to handle large values
                 await conn.execute(text("""
                     ALTER TABLE users 
-                    ALTER COLUMN telegram_id TYPE BIGINT
+                    ALTER COLUMN telegram_id TYPE BIGINT USING telegram_id::BIGINT
                 """))
                 logger.info("✅ Migration completed successfully!")
+                
+                # Refresh metadata
+                from app.models import Base
+                Base.metadata.reflect(bind=conn)
+                
             else:
                 logger.info(f"✅ telegram_id is already {current_type}")
                 

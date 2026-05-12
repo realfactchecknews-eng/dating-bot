@@ -2,7 +2,8 @@ import aiohttp
 import logging
 from typing import Optional
 from aiogram import Bot
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, and_, func, text
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,24 +44,39 @@ def format_profile_text(profile: Profile, user: User) -> str:
     
     return text
 
-async def get_or_create_user(session: AsyncSession, telegram_id: int, username: Optional[str] = None) -> User:
+async def get_or_create_user(session: AsyncSession, telegram_id: int, username: str = None) -> User:
+    # Convert telegram_id to Python int to handle large values
+    telegram_id = int(telegram_id)
+    
     result = await session.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     
     if not user:
-        user = User(telegram_id=telegram_id, username=username)
-        session.add(user)
         try:
+            user = User(telegram_id=telegram_id, username=username)
+            session.add(user)
             await session.commit()
-        except IntegrityError:
+        except Exception as e:
             await session.rollback()
-            result = await session.execute(select(User).where(User.telegram_id == telegram_id))
-            user = result.scalar_one()
-    else:
-        user.last_activity = func.now()
-        if username:
-            user.username = username
-        await session.commit()
+            # If there's still an error with large numbers, try to handle it
+            if "out of range" in str(e).lower():
+                logger.error(f"Telegram ID {telegram_id} is too large for current database schema")
+                # Try to migrate again
+                await session.execute(text("ALTER TABLE users ALTER COLUMN telegram_id TYPE BIGINT USING telegram_id::BIGINT"))
+                await session.commit()
+                # Retry user creation
+                user = User(telegram_id=telegram_id, username=username)
+                session.add(user)
+                await session.commit()
+            else:
+                # Handle integrity error (duplicate user)
+                result = await session.execute(select(User).where(User.telegram_id == telegram_id))
+                user = result.scalar_one_or_none()
+    
+    user.last_activity = func.now()
+    if username:
+        user.username = username
+    await session.commit()
     
     return user
 
