@@ -405,6 +405,7 @@ search_cache = {}
 
 @router.callback_query(F.data == "search")
 async def start_search(callback: CallbackQuery):
+    logger.info(f"Search button pressed by user {callback.from_user.id}")
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
