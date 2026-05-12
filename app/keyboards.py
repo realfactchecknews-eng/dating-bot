@@ -149,3 +149,13 @@ def get_news_management_keyboard():
     builder.button(text="🔙 Назад", callback_data="news")
     builder.adjust(2, 1)
     return builder.as_markup()
+
+def get_chat_keyboard(chat_user_id: int, is_anonymous: bool = False):
+    builder = InlineKeyboardBuilder()
+    if is_anonymous:
+        builder.button(text="👤 Показать имя", callback_data=f"toggle_anonymous_{chat_user_id}")
+    else:
+        builder.button(text="🎭 Анонимно", callback_data=f"toggle_anonymous_{chat_user_id}")
+    builder.button(text="🔙 Назад", callback_data="my_matches")
+    builder.adjust(1, 1)
+    return builder.as_markup()

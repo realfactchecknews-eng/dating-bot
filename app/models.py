@@ -125,3 +125,19 @@ class News(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     author_id = Column(Integer, ForeignKey("users.id"))
+
+class Message(Base):
+    __tablename__ = "messages"
+    
+    id = Column(Integer, primary_key=True)
+    from_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    to_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    is_anonymous = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_read = Column(Boolean, default=False)
+    
+    __table_args__ = (
+        Index('idx_message_from_to', 'from_user_id', 'to_user_id'),
+        Index('idx_message_created', 'created_at'),
+    )

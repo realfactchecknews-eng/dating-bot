@@ -31,3 +31,6 @@ class SearchStates(StatesGroup):
 class NewsStates(StatesGroup):
     title = State()
     content = State()
+
+class ChatStates(StatesGroup):
+    messaging = State()

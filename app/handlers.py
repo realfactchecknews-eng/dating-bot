@@ -5,18 +5,18 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
-from sqlalchemy import select, and_, delete
+from sqlalchemy import select, and_, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.states import RegistrationStates, ProfileEditStates, RatingStates, AdminStates, SearchStates, NewsStates
-from app.models import User, Profile, Rating, Like, Match, News
+from app.states import RegistrationStates, ProfileEditStates, RatingStates, AdminStates, SearchStates, NewsStates, ChatStates
+from app.models import User, Profile, Rating, Like, Match, News, Message
 from app.keyboards import (
     get_main_menu_keyboard, get_registration_keyboard, get_gender_keyboard,
     get_orientation_keyboard, get_psl_rating_keyboard, get_appeal_rating_keyboard,
     get_search_action_keyboard, get_rating_keyboard, get_profile_edit_keyboard,
     get_confirm_keyboard, get_settings_keyboard, get_admin_keyboard,
     get_back_keyboard, get_matches_keyboard, get_skip_keyboard, get_rating_result_keyboard,
-    get_news_keyboard, get_news_management_keyboard
+    get_news_keyboard, get_news_management_keyboard, get_chat_keyboard
 )
 from app.utils import (
     get_or_create_user, get_profile_by_telegram_id, format_profile_text,
@@ -472,29 +472,145 @@ async def back_to_rate(callback: CallbackQuery):
     await callback.answer()
 
 @router.callback_query(F.data.startswith("open_chat_"))
-async def open_chat(callback: CallbackQuery):
+async def open_chat(callback: CallbackQuery, state: FSMContext):
     target_user_id = int(callback.data.split("_")[2])
     
     async with async_session() as session:
-        # Получаем информацию о пользователе
+        # Получаем информацию о текущем пользователе
         user_result = await session.execute(
-            select(User).where(User.id == target_user_id)
+            select(User).where(User.telegram_id == callback.from_user.id)
         )
-        target_user = user_result.scalar_one_or_none()
+        current_user = user_result.scalar_one()
         
-        if not target_user:
+        # Получаем информацию о собеседнике
+        target_result = await session.execute(
+            select(User, Profile).join(Profile).where(User.id == target_user_id)
+        )
+        target_data = target_result.one_or_none()
+        
+        if not target_data:
             await callback.answer("Пользователь не найден")
             return
         
-        # Здесь можно добавить логику для открытия чата
-        # Пока просто покажем информацию
+        target_user, target_profile = target_data
+        
+        # Получаем историю сообщений
+        messages_result = await session.execute(
+            select(Message).where(
+                or_(
+                    and_(Message.from_user_id == current_user.id, Message.to_user_id == target_user_id),
+                    and_(Message.from_user_id == target_user_id, Message.to_user_id == current_user.id)
+                )
+            ).order_by(Message.created_at.desc()).limit(20)
+        )
+        messages = messages_result.scalars().all()
+        
+        # Формируем текст чата
+        chat_text = f"💬 **Чат с {target_profile.name}**\n\n"
+        
+        if not messages:
+            chat_text += "Начни разговор первым! 👋"
+        else:
+            # Показываем сообщения в обратном порядке (старые снизу)
+            for msg in reversed(messages):
+                if msg.from_user_id == current_user.id:
+                    sender = "Ты"
+                    if msg.is_anonymous:
+                        sender = "Ты (анонимно)"
+                else:
+                    sender = target_profile.name
+                    if msg.is_anonymous:
+                        sender = "Собеседник (анонимно)"
+                
+                chat_text += f"**{sender}:** {msg.content}\n\n"
+        
+        # Сохраняем ID собеседника в состоянии
+        await state.update_data(chat_user_id=target_user_id, is_anonymous=False)
+        await state.set_state(ChatStates.messaging)
+        
         await callback.message.edit_text(
-            f"💬 Чат с {target_user.username or 'пользователем'}\n\n"
-            f"ID: {target_user.telegram_id}\n\n"
-            "Функция чата в разработке!",
-            reply_markup=get_back_keyboard()
+            chat_text,
+            parse_mode="Markdown",
+            reply_markup=get_chat_keyboard(target_user_id, is_anonymous=False)
         )
     await callback.answer()
+
+@router.callback_query(F.data.startswith("toggle_anonymous_"))
+async def toggle_anonymous(callback: CallbackQuery, state: FSMContext):
+    target_user_id = int(callback.data.split("_")[2])
+    data = await state.get_data()
+    current_anonymous = data.get("is_anonymous", False)
+    
+    new_anonymous = not current_anonymous
+    await state.update_data(is_anonymous=new_anonymous)
+    
+    status = "анонимно" if new_anonymous else "неанонимно"
+    await callback.answer(f"Теперь сообщения будут отправляться {status}")
+
+@router.message(ChatStates.messaging)
+async def handle_chat_message(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    target_user_id = data.get("chat_user_id")
+    is_anonymous = data.get("is_anonymous", False)
+    
+    if not target_user_id:
+        await message.answer("Ошибка: собеседник не найден")
+        await state.clear()
+        return
+    
+    async with async_session() as session:
+        # Получаем информацию о текущем пользователе
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == message.from_user.id)
+        )
+        current_user = user_result.scalar_one()
+        
+        # Получаем информацию о собеседнике
+        target_result = await session.execute(
+            select(User, Profile).join(Profile).where(User.id == target_user_id)
+        )
+        target_data = target_result.one_or_none()
+        
+        if not target_data:
+            await message.answer("Собеседник не найден")
+            await state.clear()
+            return
+        
+        target_user, target_profile = target_data
+        
+        # Сохраняем сообщение в базу
+        new_message = Message(
+            from_user_id=current_user.id,
+            to_user_id=target_user_id,
+            content=message.text,
+            is_anonymous=is_anonymous
+        )
+        session.add(new_message)
+        await session.commit()
+        
+        # Формируем текст для отправки собеседнику
+        if is_anonymous:
+            sender_text = "Собеседник (анонимно)"
+        else:
+            current_profile = await get_profile_by_telegram_id(session, message.from_user.id)
+            sender_text = current_profile.name if current_profile else "Пользователь"
+        
+        message_text = f"💬 **{sender_text}:** {message.text}"
+        
+        try:
+            # Отправляем сообщение собеседнику
+            await bot.send_message(
+                target_user.telegram_id,
+                message_text,
+                parse_mode="Markdown"
+            )
+            
+            # Подтверждаем отправку
+            await message.answer("✅ Сообщение отправлено")
+            
+        except Exception as e:
+            logger.error(f"Failed to send message to {target_user.telegram_id}: {e}")
+            await message.answer("❌ Не удалось отправить сообщение")
 
 @router.callback_query(F.data.startswith("psl_"))
 async def process_psl_rating(callback: CallbackQuery, state: FSMContext):
