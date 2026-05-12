@@ -323,7 +323,8 @@ async def admin_reports(callback: CallbackQuery):
         async with async_session() as session:
             # Получаем нерешённые репорты
             result = await session.execute(
-                select(Report, User).join(User).where(Report.is_resolved == False)
+                select(Report, User).join(User, Report.from_user_id == User.id)
+                .where(Report.is_resolved == False)
                 .order_by(Report.created_at.desc()).limit(10)
             )
             reports = result.all()
@@ -361,7 +362,8 @@ async def admin_resolved_reports(callback: CallbackQuery):
     async with async_session() as session:
         # Получаем решённые репорты
         result = await session.execute(
-            select(Report, User).join(User).where(Report.is_resolved == True)
+            select(Report, User).join(User, Report.from_user_id == User.id)
+            .where(Report.is_resolved == True)
             .order_by(Report.created_at.desc()).limit(10)
         )
         reports = result.all()
@@ -394,7 +396,7 @@ async def view_report(callback: CallbackQuery):
     
     async with async_session() as session:
         result = await session.execute(
-            select(Report, User).join(User).where(Report.id == report_id)
+            select(Report, User).join(User, Report.from_user_id == User.id).where(Report.id == report_id)
         )
         report_data = result.one_or_none()
         
@@ -450,7 +452,7 @@ async def process_reply_report(message: Message, state: FSMContext, bot: Bot):
     async with async_session() as session:
         # Получаем информацию о репорте
         result = await session.execute(
-            select(Report, User).join(User).where(Report.id == report_id)
+            select(Report, User).join(User, Report.from_user_id == User.id).where(Report.id == report_id)
         )
         report_data = result.one_or_none()
         
