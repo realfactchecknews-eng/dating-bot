@@ -7,7 +7,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
 
 from app.config import Config
-from app.database import init_db
+from app.database import init_db, engine
+from sqlalchemy import text
 from app import handlers, admin
 
 os.makedirs("logs", exist_ok=True)
@@ -33,6 +34,31 @@ dp.include_router(admin.router)
 async def on_startup():
     logger.info("Starting bot...")
     await init_db()
+    
+    # Auto-migrate telegram_id to BIGINT if needed
+    try:
+        async with engine.begin() as conn:
+            # Check if telegram_id is still INTEGER
+            result = await conn.execute(text("""
+                SELECT data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'users' AND column_name = 'telegram_id'
+            """))
+            current_type = result.scalar()
+            
+            if current_type == 'integer':
+                logger.info("🔄 Auto-migrating telegram_id from INTEGER to BIGINT...")
+                await conn.execute(text("""
+                    ALTER TABLE users 
+                    ALTER COLUMN telegram_id TYPE BIGINT
+                """))
+                logger.info("✅ Migration completed successfully!")
+            else:
+                logger.info(f"✅ telegram_id is already {current_type}")
+                
+    except Exception as e:
+        logger.error(f"❌ Migration failed: {e}")
+    
     logger.info("Database initialized")
     
     from aiogram.types import BotCommand
