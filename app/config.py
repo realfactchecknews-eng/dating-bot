@@ -5,7 +5,7 @@ load_dotenv()
 
 class Config:
     BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-    ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x]
+    ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "1031760975").split(",") if x]
     DATA_DIR = os.getenv("DATA_DIR", "/app/data")
     DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/dating_bot.db")
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
