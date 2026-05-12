@@ -201,6 +201,27 @@ def get_reports_list_keyboard(reports=None):
     
     return builder.as_markup()
 
+def get_matches_keyboard(matches):
+    builder = InlineKeyboardBuilder()
+    
+    # Добавляем кнопки для каждого мэтча
+    for match in matches:
+        button_text = f"💘 {match['name']}"
+        callback_data = f"open_chat_{match['user_id']}"
+        builder.button(text=button_text, callback_data=callback_data)
+    
+    # Добавляем кнопку "Назад"
+    builder.button(text="🔙 Назад", callback_data="main_menu")
+    
+    # Настраиваем расположение кнопок
+    if matches:
+        builder.adjust(1)  # Каждая кнопка мэтча на новой строке
+        builder.adjust(1)  # Кнопка "Назад"
+    else:
+        builder.adjust(1)  # Только кнопка "Назад"
+    
+    return builder.as_markup()
+
 def get_report_detail_keyboard(report_id: int, is_resolved: bool):
     builder = InlineKeyboardBuilder()
     if not is_resolved:

@@ -212,9 +212,9 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
     result = await session.execute(query)
     profiles = result.all()
     
-    # Если не нашли новых анкет, убираем фильтр лайкнутых и возвращаем случайные
+    # Если не нашли новых анкет, убираем фильтр лайкнутых и возвращаем случайные (включая повторные)
     if not profiles:
-        logger.info(f"No new profiles for user {user_id}, returning random profiles (infinite search)")
+        logger.info(f"No new profiles for user {user_id}, returning random profiles (allowing repeats)")
         query = select(Profile, User).join(User).where(
             and_(
                 Profile.user_id != user_id,
