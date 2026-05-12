@@ -245,7 +245,8 @@ async def edit_profile(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(F.data == "main_menu")
-async def main_menu(callback: CallbackQuery):
+async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
+    await state.clear()  # Сбрасываем состояние чата
     if callback.message.photo:
         await callback.message.delete()
         await callback.message.answer(
@@ -260,7 +261,8 @@ async def main_menu(callback: CallbackQuery):
     await callback.answer()
 
 @router.callback_query(F.data == "my_profile")
-async def show_my_profile(callback: CallbackQuery, bot: Bot):
+async def show_my_profile(callback: CallbackQuery, state: FSMContext):
+    await state.clear()  # Сбрасываем состояние чата
     async with async_session() as session:
         profile = await get_profile_by_telegram_id(session, callback.from_user.id)
         if not profile:
@@ -404,8 +406,9 @@ async def show_my_likes(callback: CallbackQuery):
 search_cache = {}
 
 @router.callback_query(F.data == "search")
-async def start_search(callback: CallbackQuery):
+async def start_search(callback: CallbackQuery, state: FSMContext):
     logger.info(f"Search button pressed by user {callback.from_user.id}")
+    await state.clear()  # Сбрасываем состояние чата
     await _perform_search(callback)
 
 @router.message(F.text == "/search")
@@ -695,6 +698,57 @@ async def like_profile(callback: CallbackQuery):
         
         await show_next_profile(callback, session)
 
+@router.callback_query(F.data.startswith("rate_user_"))
+async def rate_user_from_search(callback: CallbackQuery, state: FSMContext):
+    target_id = int(callback.data.split("_")[2])
+    async with async_session() as session:
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == callback.from_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            await callback.answer("Сначала создай профиль!")
+            return
+        
+        # Получаем профиль для оценки
+        result = await session.execute(
+            select(Profile, User).join(User).where(Profile.user_id == target_id)
+        )
+        profile_target = result.one_or_none()
+        
+        if not profile_target:
+            await callback.answer("Профиль не найден!")
+            return
+        
+        profile, target_user = profile_target
+        rating_cache[callback.from_user.id] = target_id
+        
+        text = format_profile_text(profile, target_user)
+        text += "\n\n<b>Оцени по шкале 1-10:</b>"
+        
+        await callback.message.delete()
+        
+        if profile.photos:
+            photo_file_id = profile.photos[0]
+            await callback.bot.send_photo(
+                callback.from_user.id,
+                photo=photo_file_id,
+                caption=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_rating_keyboard(target_id)
+            )
+        else:
+            await callback.bot.send_message(
+                callback.from_user.id,
+                text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_rating_keyboard(target_id)
+            )
+    
+    await state.set_state(RatingStates.voting)
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("dislike_"))
 async def dislike_profile(callback: CallbackQuery):
     target_id = int(callback.data.split("_")[1])
@@ -716,6 +770,7 @@ rating_cache = {}
 
 @router.callback_query(F.data == "rate_profiles")
 async def start_rating(callback: CallbackQuery, state: FSMContext):
+    await state.clear()  # Сбрасываем состояние чата
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
@@ -1046,7 +1101,8 @@ async def process_appeal_rating(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Ошибка сохранения оценки", show_alert=True)
 
 @router.callback_query(F.data == "my_matches")
-async def show_matches(callback: CallbackQuery):
+async def show_matches(callback: CallbackQuery, state: FSMContext):
+    await state.clear()  # Сбрасываем состояние чата
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
