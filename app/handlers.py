@@ -406,6 +406,57 @@ search_cache = {}
 @router.callback_query(F.data == "search")
 async def start_search(callback: CallbackQuery):
     logger.info(f"Search button pressed by user {callback.from_user.id}")
+    await _perform_search(callback)
+
+@router.message(F.text == "/search")
+async def search_command(message: Message):
+    logger.info(f"Search command used by user {message.from_user.id}")
+    async with async_session() as session:
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == message.from_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            await message.answer("Сначала создай профиль!")
+            return
+        
+        profiles = await get_search_profiles(session, user.id, limit=10)
+        logger.info(f"Found {len(profiles)} profiles for user {user.id}")
+        
+        if not profiles:
+            # Создаем тестовых пользователей если их нет
+            await create_test_users(session)
+            
+            # Пробуем поиск снова
+            profiles = await get_search_profiles(session, user.id, limit=10)
+            logger.info(f"After creating test users: Found {len(profiles)} profiles for user {user.id}")
+            
+            if not profiles:
+                await message.answer("Пока нет подходящих анкет 😔\nПопробуй позже или оценивай других пользователей!")
+                return
+        
+        # Показываем первую анкету
+        if profiles:
+            profile, user_obj = profiles[0]
+            text = format_profile_text(profile, user_obj)
+            
+            if profile.photos:
+                photo_file_id = profile.photos[0]
+                await message.answer_photo(
+                    photo=photo_file_id,
+                    caption=text,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=get_search_action_keyboard(user_obj.id)
+                )
+            else:
+                await message.answer(
+                    text,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=get_search_action_keyboard(user_obj.id)
+                )
+
+async def _perform_search(callback: CallbackQuery):
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
