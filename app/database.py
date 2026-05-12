@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 from app.config import Config
@@ -17,6 +19,10 @@ async_session = async_sessionmaker(
 )
 
 async def init_db():
+    # Создаем папку /app/data, если её нет
+    data_dir = Path(Config.DATA_DIR)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
