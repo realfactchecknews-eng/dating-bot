@@ -657,6 +657,16 @@ async def like_profile(callback: CallbackQuery):
         )
         user = user_result.scalar_one()
         
+        # Проверяем существует ли уже лайк
+        existing_like = await session.execute(
+            select(Like).where(
+                and_(Like.from_user_id == user.id, Like.to_user_id == target_id)
+            )
+        )
+        if existing_like.scalar_one_or_none():
+            await callback.answer("Ты уже лайкал(а) этого пользователя!", show_alert=True)
+            return
+        
         like = Like(from_user_id=user.id, to_user_id=target_id, is_like=True)
         session.add(like)
         await session.commit()
@@ -782,6 +792,16 @@ async def dislike_profile(callback: CallbackQuery):
             select(User).where(User.telegram_id == callback.from_user.id)
         )
         user = user_result.scalar_one()
+        
+        # Проверяем существует ли уже дизлайк
+        existing_like = await session.execute(
+            select(Like).where(
+                and_(Like.from_user_id == user.id, Like.to_user_id == target_id)
+            )
+        )
+        if existing_like.scalar_one_or_none():
+            await callback.answer("Ты уже оценивал(а) этого пользователя!", show_alert=True)
+            return
         
         like = Like(from_user_id=user.id, to_user_id=target_id, is_like=False)
         session.add(like)
