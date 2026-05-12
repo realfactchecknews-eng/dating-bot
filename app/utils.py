@@ -172,7 +172,7 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
     )
     liked_ids = [r[0] for r in liked_result.all()]
     
-    # Основной запрос с фильтрами
+    # Основной запрос - все всем без фильтров ориентации
     query = select(Profile, User).join(User).where(
         and_(
             Profile.user_id != user_id,
@@ -184,32 +184,6 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
     
     if gender_filter:
         query = query.where(Profile.gender == gender_filter)
-    
-    if profile.orientation == "straight":
-        if profile.gender == "male":
-            query = query.where(Profile.gender == "female", Profile.orientation.in_(["straight", "bisexual"]))
-        else:
-            query = query.where(Profile.gender == "male", Profile.orientation.in_(["straight", "bisexual"]))
-    elif profile.orientation == "gay":
-        query = query.where(Profile.gender == "male", Profile.orientation.in_(["gay", "bisexual"]))
-    elif profile.orientation == "lesbian":
-        query = query.where(Profile.gender == "female", Profile.orientation.in_(["lesbian", "bisexual"]))
-    elif profile.orientation == "bisexual":
-        preferred_genders = []
-        if profile.gender == "male":
-            query = query.where(
-                or_(
-                    and_(Profile.gender == "female", Profile.orientation.in_(["straight", "bisexual"])),
-                    and_(Profile.gender == "male", Profile.orientation.in_(["gay", "bisexual"]))
-                )
-            )
-        else:
-            query = query.where(
-                or_(
-                    and_(Profile.gender == "male", Profile.orientation.in_(["straight", "bisexual"])),
-                    and_(Profile.gender == "female", Profile.orientation.in_(["lesbian", "bisexual"]))
-                )
-            )
     
     query = query.order_by(func.random()).limit(limit)
     
@@ -230,31 +204,6 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
         
         if gender_filter:
             query = query.where(Profile.gender == gender_filter)
-        
-        if profile.orientation == "straight":
-            if profile.gender == "male":
-                query = query.where(Profile.gender == "female", Profile.orientation.in_(["straight", "bisexual"]))
-            else:
-                query = query.where(Profile.gender == "male", Profile.orientation.in_(["straight", "bisexual"]))
-        elif profile.orientation == "gay":
-            query = query.where(Profile.gender == "male", Profile.orientation.in_(["gay", "bisexual"]))
-        elif profile.orientation == "lesbian":
-            query = query.where(Profile.gender == "female", Profile.orientation.in_(["lesbian", "bisexual"]))
-        elif profile.orientation == "bisexual":
-            if profile.gender == "male":
-                query = query.where(
-                    or_(
-                        and_(Profile.gender == "female", Profile.orientation.in_(["straight", "bisexual"])),
-                        and_(Profile.gender == "male", Profile.orientation.in_(["gay", "bisexual"]))
-                    )
-                )
-            else:
-                query = query.where(
-                    or_(
-                        and_(Profile.gender == "male", Profile.orientation.in_(["straight", "bisexual"])),
-                        and_(Profile.gender == "female", Profile.orientation.in_(["lesbian", "bisexual"]))
-                    )
-                )
         
         query = query.order_by(func.random()).limit(limit)
         result = await session.execute(query)
