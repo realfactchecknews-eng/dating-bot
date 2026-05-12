@@ -75,9 +75,10 @@ def get_profile_edit_keyboard():
     builder.button(text="🏙 Город", callback_data="edit_city")
     builder.button(text="📄 О себе", callback_data="edit_bio")
     builder.button(text="📸 Фото", callback_data="edit_photos")
-    builder.button(text="� Моя оценка", callback_data="my_rating")
-    builder.button(text="�🔙 Назад", callback_data="main_menu")
-    builder.adjust(2, 2, 2, 1)
+    builder.button(text="📊 Моя оценка", callback_data="my_rating")
+    builder.button(text="❤️ Мои лайки", callback_data="my_likes")
+    builder.button(text="🔙 Назад", callback_data="main_menu")
+    builder.adjust(2, 2, 2, 2)
     return builder.as_markup()
 
 def get_confirm_keyboard():

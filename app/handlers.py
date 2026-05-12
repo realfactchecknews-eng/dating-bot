@@ -351,6 +351,56 @@ async def show_my_rating(callback: CallbackQuery):
         )
     await callback.answer()
 
+@router.callback_query(F.data == "my_likes")
+async def show_my_likes(callback: CallbackQuery):
+    async with async_session() as session:
+        user_result = await session.execute(select(User).where(User.telegram_id == callback.from_user.id))
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            await callback.answer("Сначала создай профиль!")
+            return
+        
+        # Получаем лайки пользователя
+        likes_result = await session.execute(
+            select(Like, Profile, User).join(Profile, Like.to_user_id == Profile.user_id)
+            .join(User, Profile.user_id == User.id)
+            .where(Like.from_user_id == user.id, Like.is_like == True)
+            .order_by(Like.created_at.desc())
+            .limit(20)
+        )
+        likes = likes_result.all()
+        
+        if not likes:
+            await safe_edit_message(
+                callback,
+                "❤️ <b>Мои лайки:</b>\n\n"
+                "Ты пока никому не ставил(а) лайки!\n"
+                "Начни поиск и лайкай понравившихся людей!",
+                reply_markup=get_profile_edit_keyboard(),
+                parse_mode="HTML"
+            )
+            return
+        
+        text = f"❤️ <b>Твои лайки ({len(likes)}):</b>\n\n"
+        
+        for i, (like, profile, target_user) in enumerate(likes[:10], 1):  # Показываем только первые 10
+            gender_icon = "👨" if profile.gender == "male" else "👩"
+            text += f"{i}. {gender_icon} <b>{profile.name}</b>, {profile.age}\n"
+            text += f"   🏙 {profile.city or 'Не указан'}\n"
+            text += f"   🕐 {like.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+        
+        if len(likes) > 10:
+            text += f"... и еще {len(likes) - 10} лайков"
+        
+        await safe_edit_message(
+            callback,
+            text,
+            reply_markup=get_profile_edit_keyboard(),
+            parse_mode="HTML"
+        )
+    await callback.answer()
+
 search_cache = {}
 
 @router.callback_query(F.data == "search")
@@ -434,19 +484,41 @@ async def like_profile(callback: CallbackQuery):
         session.add(like)
         await session.commit()
         
-        # Отправляем уведомление о лайке
+        # Отправляем уведомление о лайке с информацией о том, кто лайкнул
         target_result = await session.execute(
-            select(User).where(User.id == target_id)
+            select(User, Profile).join(Profile, User.id == Profile.user_id).where(User.id == target_id)
         )
-        target_user = target_result.scalar_one()
+        target_data = target_result.one_or_none()
         
-        try:
-            await callback.bot.send_message(
-                target_user.telegram_id,
-                f"❤️ Тебя лайкнул(а) @{callback.from_user.username or 'пользователь'}!"
+        if target_data:
+            target_user, target_profile = target_data
+            
+            # Получаем профиль того, кто лайкнул
+            liker_result = await session.execute(
+                select(Profile).where(Profile.user_id == user.id)
             )
-        except Exception as e:
-            logger.error(f"Failed to send like notification: {e}")
+            liker_profile = liker_result.scalar_one_or_none()
+            
+            try:
+                if liker_profile:
+                    notification_text = (
+                        f"❤️ Тебя лайкнул(а) @{callback.from_user.username or 'пользователь'}!\n\n"
+                        f"👤 <b>Информация:</b>\n"
+                        f"📝 Имя: {liker_profile.name}\n"
+                        f"🔢 Возраст: {liker_profile.age}\n"
+                        f"🏙 Город: {liker_profile.city or 'Не указан'}\n\n"
+                        f"💬 Если взаимно - будет мэтч!"
+                    )
+                else:
+                    notification_text = f"❤️ Тебя лайкнул(а) @{callback.from_user.username or 'пользователь'}!"
+                
+                await callback.bot.send_message(
+                    target_user.telegram_id,
+                    notification_text,
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send like notification: {e}")
         
         is_mutual = await check_mutual_like(session, user.id, target_id)
         if is_mutual:

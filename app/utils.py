@@ -162,11 +162,19 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
     
     user, profile = user_data
     
+    # Получаем ID пользователей, которым уже ставили лайк/дизлайк
+    liked_result = await session.execute(
+        select(Like.to_user_id).where(Like.from_user_id == user_id)
+    )
+    liked_ids = [r[0] for r in liked_result.all()]
+    
+    # Основной запрос с фильтрами
     query = select(Profile, User).join(User).where(
         and_(
             Profile.user_id != user_id,
             Profile.is_visible == True,
-            User.is_banned == False
+            User.is_banned == False,
+            ~Profile.user_id.in_(liked_ids) if liked_ids else True  # Исключаем уже оцененных
         )
     )
     
@@ -202,7 +210,52 @@ async def get_search_profiles(session: AsyncSession, user_id: int, gender_filter
     query = query.order_by(func.random()).limit(limit)
     
     result = await session.execute(query)
-    return result.all()
+    profiles = result.all()
+    
+    # Если не нашли новых анкет, убираем фильтр лайкнутых и возвращаем случайные
+    if not profiles:
+        logger.info(f"No new profiles for user {user_id}, returning random profiles (infinite search)")
+        query = select(Profile, User).join(User).where(
+            and_(
+                Profile.user_id != user_id,
+                Profile.is_visible == True,
+                User.is_banned == False
+            )
+        )
+        
+        if gender_filter:
+            query = query.where(Profile.gender == gender_filter)
+        
+        if profile.orientation == "straight":
+            if profile.gender == "male":
+                query = query.where(Profile.gender == "female", Profile.orientation.in_(["straight", "bisexual"]))
+            else:
+                query = query.where(Profile.gender == "male", Profile.orientation.in_(["straight", "bisexual"]))
+        elif profile.orientation == "gay":
+            query = query.where(Profile.gender == "male", Profile.orientation.in_(["gay", "bisexual"]))
+        elif profile.orientation == "lesbian":
+            query = query.where(Profile.gender == "female", Profile.orientation.in_(["lesbian", "bisexual"]))
+        elif profile.orientation == "bisexual":
+            if profile.gender == "male":
+                query = query.where(
+                    or_(
+                        and_(Profile.gender == "female", Profile.orientation.in_(["straight", "bisexual"])),
+                        and_(Profile.gender == "male", Profile.orientation.in_(["gay", "bisexual"]))
+                    )
+                )
+            else:
+                query = query.where(
+                    or_(
+                        and_(Profile.gender == "male", Profile.orientation.in_(["straight", "bisexual"])),
+                        and_(Profile.gender == "female", Profile.orientation.in_(["lesbian", "bisexual"]))
+                    )
+                )
+        
+        query = query.order_by(func.random()).limit(limit)
+        result = await session.execute(query)
+        profiles = result.all()
+    
+    return profiles
 
 async def get_random_profile_for_rating(session: AsyncSession, user_id: int):
     result = await session.execute(
