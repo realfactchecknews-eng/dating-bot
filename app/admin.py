@@ -310,33 +310,45 @@ async def admin_clear_photos(callback: CallbackQuery):
 # Обработчики для управления репортами
 @router.callback_query(F.data == "admin_reports")
 async def admin_reports(callback: CallbackQuery):
+    logger.info(f"Admin reports callback received from user {callback.from_user.id}")
+    
     if not is_admin(callback.from_user.id):
+        logger.warning(f"Non-admin user {callback.from_user.id} tried to access admin reports")
         await callback.answer("Нет доступа!")
         return
     
-    async with async_session() as session:
-        # Получаем нерешённые репорты
-        result = await session.execute(
-            select(Report, User).join(User).where(Report.is_resolved == False)
-            .order_by(Report.created_at.desc()).limit(10)
-        )
-        reports = result.all()
-        
-        if not reports:
-            text = "🚨 <b>Репорты</b>\n\n✅ Нет нерешённых репортов!"
-        else:
-            text = f"🚨 <b>Нерешённые репорты ({len(reports)}):</b>\n\n"
-            for i, (report, user) in enumerate(reports, 1):
-                status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
-                emoji = status_emoji.get(report.report_type, "📄")
-                text += f"{i}. {emoji} <b><a href='tg://resolve?domain=&post=0'>#{report.id}</a></b> от @{user.username or 'user'}\n"
-                text += f"💬 {report.message[:50]}{'...' if len(report.message) > 50 else ''}\n"
-                text += f"🕐 {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
-        
+    logger.info("Admin accessing reports...")
+    
+    try:
+        async with async_session() as session:
+            # Получаем нерешённые репорты
+            result = await session.execute(
+                select(Report, User).join(User).where(Report.is_resolved == False)
+                .order_by(Report.created_at.desc()).limit(10)
+            )
+            reports = result.all()
+            
+            if not reports:
+                text = "🚨 <b>Репорты</b>\n\n✅ Нет нерешённых репортов!"
+            else:
+                text = f"🚨 <b>Нерешённые репорты ({len(reports)}):</b>\n\n"
+                for i, (report, user) in enumerate(reports, 1):
+                    status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
+                    emoji = status_emoji.get(report.report_type, "📄")
+                    text += f"{i}. {emoji} <b><a href='tg://resolve?domain=&post=0'>#{report.id}</a></b> от @{user.username or 'user'}\n"
+                    text += f"💬 {report.message[:50]}{'...' if len(report.message) > 50 else ''}\n"
+                    text += f"🕐 {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+            
+            await callback.message.edit_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=get_reports_list_keyboard()
+            )
+    except Exception as e:
+        logger.error(f"Error fetching reports: {e}")
         await callback.message.edit_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=get_reports_list_keyboard()
+            "❌ Ошибка при загрузке репортов. Попробуй позже.",
+            reply_markup=get_admin_keyboard()
         )
     await callback.answer()
 
