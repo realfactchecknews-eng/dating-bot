@@ -55,9 +55,15 @@ async def on_startup():
                 """))
                 logger.info("✅ Migration completed successfully!")
                 
-                # Refresh metadata
+                # Refresh metadata and clear caches
                 from app.models import Base
                 Base.metadata.reflect(bind=conn)
+                
+                # Clear all prepared statement caches
+                await conn.execute(text("DISCARD ALL"))
+                await conn.commit()
+                
+                logger.info("🧹 Cleared database caches")
                 
             else:
                 logger.info(f"✅ telegram_id is already {current_type}")
