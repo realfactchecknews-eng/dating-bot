@@ -620,10 +620,10 @@ async def show_next_profile(callback: CallbackQuery, session: AsyncSession):
     text = format_profile_text(profile, user)
     
     try:
-            await callback.message.delete()
-        except Exception as e:
-            logger.error(f"Failed to delete message: {e}")
-            # Продолжаем даже если не удалось удалить
+        await callback.message.delete()
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
+        # Продолжаем даже если не удалось удалить
     
     if profile.photos:
         photo_file_id = profile.photos[0]
