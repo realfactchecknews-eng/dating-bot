@@ -413,6 +413,79 @@ async def show_psl_rating(callback: CallbackQuery):
     await callback.message.edit_reply_markup(reply_markup=get_psl_rating_keyboard(target_id))
     await callback.answer("Выбери PSL оценку (1-10)")
 
+@router.callback_query(F.data.startswith("show_appeal_"))
+async def show_appeal_rating(callback: CallbackQuery):
+    target_id = int(callback.data.split("_")[2])
+    await callback.message.edit_reply_markup(reply_markup=get_appeal_rating_keyboard(target_id))
+    await callback.answer("Выбери APPEAL оценку (1-10)")
+
+@router.callback_query(F.data == "back_to_rate")
+async def back_to_rate(callback: CallbackQuery):
+    async with async_session() as session:
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == callback.from_user.id)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            await callback.answer("Сначала создай профиль!")
+            return
+        
+        result = await get_random_profile_for_rating(session, user.id)
+        
+        if not result:
+            await callback.message.edit_text(
+                "Нет анкет для оценки 😔",
+                reply_markup=get_back_keyboard()
+            )
+            await callback.answer()
+            return
+        
+        profile, target_user = result
+        rating_cache[callback.from_user.id] = target_user.id
+        
+        text = format_profile_text(profile, target_user)
+        text += "\n\n<b>Оцени по шкале 1-10:</b>"
+        
+        if callback.message.photo:
+            await callback.message.edit_caption(
+                caption=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_rating_keyboard(target_user.id)
+            )
+        else:
+            await callback.message.edit_text(
+                text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_rating_keyboard(target_user.id)
+            )
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("open_chat_"))
+async def open_chat(callback: CallbackQuery):
+    target_user_id = int(callback.data.split("_")[2])
+    
+    async with async_session() as session:
+        # Получаем информацию о пользователе
+        user_result = await session.execute(
+            select(User).where(User.id == target_user_id)
+        )
+        target_user = user_result.scalar_one_or_none()
+        
+        if not target_user:
+            await callback.answer("Пользователь не найден")
+            return
+        
+        # Здесь можно добавить логику для открытия чата
+        # Пока просто покажем информацию
+        await callback.message.edit_text(
+            f"💬 Чат с {target_user.username or 'пользователем'}\n\n"
+            f"ID: {target_user.telegram_id}\n\n"
+            "Функция чата в разработке!",
+            reply_markup=get_back_keyboard()
+        )
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("psl_"))
 async def process_psl_rating(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
