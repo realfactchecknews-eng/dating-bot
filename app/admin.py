@@ -16,15 +16,52 @@ from app.database import async_session
 router = Router()
 logger = logging.getLogger(__name__)
 
+# Безопасное редактирование сообщения
+async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None, parse_mode=None):
+    """Безопасно редактирует сообщение, обрабатывая ошибки"""
+    try:
+        if callback.message.text:
+            await callback.message.edit_text(
+                text, 
+                reply_markup=reply_markup, 
+                parse_mode=parse_mode
+            )
+        elif callback.message.caption:
+            await callback.message.edit_caption(
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+        else:
+            # Если нет текста и caption, отправляем новое сообщение
+            await callback.message.answer(
+                text,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        # Если не получилось редактировать, отправляем новое сообщение
+        try:
+            await callback.message.answer(
+                text,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode
+            )
+        except Exception as e2:
+            logger.error(f"Error sending new message: {e2}")
+            await callback.answer("Произошла ошибка, попробуй еще раз")
+
 @router.callback_query(F.data == "admin_panel")
 async def admin_panel(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         await callback.answer("Нет доступа!")
         return
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         "🔧 <b>Панель администратора</b>",
-        parse_mode="HTML",
-        reply_markup=get_admin_keyboard()
+        reply_markup=get_admin_keyboard(),
+        parse_mode="HTML"
     )
     await callback.answer()
 
@@ -90,10 +127,11 @@ async def admin_stats(callback: CallbackQuery):
         for i, profile in enumerate(top_rated, 1):
             stats_text += f"{i}. {profile.name} - {profile.psl_rating:.1f}/10\n"
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             stats_text,
-            parse_mode="HTML",
-            reply_markup=get_admin_keyboard()
+            reply_markup=get_admin_keyboard(),
+            parse_mode="HTML"
         )
     await callback.answer()
 
@@ -103,7 +141,8 @@ async def admin_broadcast(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Нет доступа!")
         return
     
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         "📢 Введи сообщение для рассылки:\n\n"
         "(отправь /cancel для отмены)",
         reply_markup=get_back_keyboard()
@@ -199,7 +238,8 @@ async def admin_unban(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Нет доступа!")
         return
     
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         "✅ Введи Telegram ID пользователя для разбана:\n\n"
         "(отправь /cancel для отмены)",
         reply_markup=get_back_keyboard()
@@ -259,10 +299,11 @@ async def admin_users(callback: CallbackQuery):
             name = profile.name if profile else "Нет профиля"
             users_text += f"{status} ID: <code>{user.telegram_id}</code> - {name}\n"
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             users_text,
-            parse_mode="HTML",
-            reply_markup=get_admin_keyboard()
+            reply_markup=get_admin_keyboard(),
+            parse_mode="HTML"
         )
     await callback.answer()
 
@@ -342,10 +383,11 @@ async def admin_reports(callback: CallbackQuery):
                     text += f"🕐 {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
             
             try:
-                await callback.message.edit_text(
+                await safe_edit_message(
+                    callback,
                     text,
-                    parse_mode="HTML",
-                    reply_markup=get_reports_list_keyboard(reports)
+                    reply_markup=get_reports_list_keyboard(reports),
+                    parse_mode="HTML"
                 )
             except Exception as e:
                 if "message is not modified" in str(e):
@@ -442,10 +484,11 @@ async def view_report(callback: CallbackQuery):
             f"💬 <b>Сообщение:</b>\n{report.message}"
         )
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             text,
-            parse_mode="HTML",
-            reply_markup=get_report_detail_keyboard(report_id, report.is_resolved)
+            reply_markup=get_report_detail_keyboard(report_id, report.is_resolved),
+            parse_mode="HTML"
         )
     await callback.answer()
 
@@ -542,10 +585,11 @@ async def resolve_report(callback: CallbackQuery):
                     f"💬 <b>Сообщение:</b>\n{report.message}"
                 )
                 
-                await callback.message.edit_text(
+                await safe_edit_message(
+                    callback,
                     text,
-                    parse_mode="HTML",
-                    reply_markup=get_report_detail_keyboard(report_id, True)
+                    reply_markup=get_report_detail_keyboard(report_id, True),
+                    parse_mode="HTML"
                 )
             
             await callback.answer("✅ Репорт отмечен как решённый!")
@@ -590,10 +634,11 @@ async def reopen_report(callback: CallbackQuery):
                     f"💬 <b>Сообщение:</b>\n{report.message}"
                 )
                 
-                await callback.message.edit_text(
+                await safe_edit_message(
+                    callback,
                     text,
-                    parse_mode="HTML",
-                    reply_markup=get_report_detail_keyboard(report_id, False)
+                    reply_markup=get_report_detail_keyboard(report_id, False),
+                    parse_mode="HTML"
                 )
             
             await callback.answer("🔄 Репорт переоткрыт!")
