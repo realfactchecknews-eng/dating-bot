@@ -636,19 +636,34 @@ async def edit_profile_field(callback: CallbackQuery, state: FSMContext):
     logger.info(f"Field to edit: {field}")
     
     if field == "name":
-        await callback.message.edit_text("Введи новое имя:")
+        if callback.message.photo:
+            await callback.message.edit_caption("Введи новое имя:")
+        else:
+            await callback.message.edit_text("Введи новое имя:")
         await state.set_state(ProfileEditStates.edit_name)
     elif field == "age":
-        await callback.message.edit_text("Введи новый возраст (18-100):")
+        if callback.message.photo:
+            await callback.message.edit_caption("Введи новый возраст (18-100):")
+        else:
+            await callback.message.edit_text("Введи новый возраст (18-100):")
         await state.set_state(ProfileEditStates.edit_age)
     elif field == "city":
-        await callback.message.edit_text("Введи новый город:")
+        if callback.message.photo:
+            await callback.message.edit_caption("Введи новый город:")
+        else:
+            await callback.message.edit_text("Введи новый город:")
         await state.set_state(ProfileEditStates.edit_city)
     elif field == "bio":
-        await callback.message.edit_text("Введи новую биографию (до 500 символов):")
+        if callback.message.photo:
+            await callback.message.edit_caption("Введи новую биографию (до 500 символов):")
+        else:
+            await callback.message.edit_text("Введи новую биографию (до 500 символов):")
         await state.set_state(ProfileEditStates.edit_bio)
     elif field == "photos":
-        await callback.message.edit_text("Отправь новые фото (до 5 штук):")
+        if callback.message.photo:
+            await callback.message.edit_caption("Отправь новые фото (до 5 штук):")
+        else:
+            await callback.message.edit_text("Отправь новые фото (до 5 штук):")
         await state.set_state(ProfileEditStates.edit_photos)
         await state.update_data(photos=[])
     else:
