@@ -5,7 +5,6 @@ def get_main_menu_keyboard(is_admin=False):
     builder = InlineKeyboardBuilder()
     builder.button(text="🔍 Искать", callback_data="search")
     builder.button(text="👤 Мой профиль", callback_data="my_profile")
-    builder.button(text="⭐ Оценивать", callback_data="rate_profiles")
     builder.button(text="🔔 Мэтчи", callback_data="my_matches")
     builder.button(text="📰 Новости", callback_data="news")
     builder.button(text="🚨 Репорт", callback_data="report")

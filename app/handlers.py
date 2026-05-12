@@ -700,7 +700,15 @@ async def like_profile(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("rate_user_"))
 async def rate_user_from_search(callback: CallbackQuery, state: FSMContext):
-    target_id = int(callback.data.split("_")[2])
+    logger.info(f"Rate user callback: {callback.data}")
+    try:
+        target_id = int(callback.data.split("_")[2])
+        logger.info(f"Target ID: {target_id}")
+    except (IndexError, ValueError) as e:
+        logger.error(f"Error parsing callback data: {e}")
+        await callback.answer("Ошибка кнопки", show_alert=True)
+        return
+    
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
@@ -946,6 +954,12 @@ async def toggle_anonymous(callback: CallbackQuery, state: FSMContext):
 
 @router.message(ChatStates.messaging)
 async def handle_chat_message(message: Message, state: FSMContext, bot: Bot):
+    # Проверяем что мы действительно в состоянии чата
+    current_state = await state.get_state()
+    if current_state != ChatStates.messaging.state:
+        logger.info(f"User {message.from_user.id} sent message but not in chat state: {current_state}")
+        return
+    
     data = await state.get_data()
     target_user_id = data.get("chat_user_id")
     is_anonymous = data.get("is_anonymous", False)
