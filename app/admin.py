@@ -490,14 +490,46 @@ async def resolve_report(callback: CallbackQuery):
         return
     
     report_id = int(callback.data.split("_")[2])
+    logger.info(f"Resolving report {report_id}")
     
-    async with async_session() as session:
-        await session.execute(
-            update(Report).where(Report.id == report_id).values(is_resolved=True)
-        )
-        await session.commit()
-        
-        await callback.answer("✅ Репорт отмечен как решённый!")
+    try:
+        async with async_session() as session:
+            await session.execute(
+                update(Report).where(Report.id == report_id).values(is_resolved=True)
+            )
+            await session.commit()
+            
+            # Обновляем интерфейс
+            result = await session.execute(
+                select(Report, User).join(User, Report.from_user_id == User.id).where(Report.id == report_id)
+            )
+            report_data = result.one_or_none()
+            
+            if report_data:
+                report, user = report_data
+                status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
+                emoji = status_emoji.get(report.report_type, "📄")
+                
+                text = (
+                    f"🚨 <b>Репорт #{report.id}</b>\n\n"
+                    f"👤 От: @{user.username or 'пользователь'} (ID: {user.telegram_id})\n"
+                    f"📝 Тип: {emoji} {report.report_type}\n"
+                    f"📊 Статус: ✅ Решён\n"
+                    f"🕐 Создан: {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+                    f"💬 <b>Сообщение:</b>\n{report.message}"
+                )
+                
+                await callback.message.edit_text(
+                    text,
+                    parse_mode="HTML",
+                    reply_markup=get_report_detail_keyboard(report_id, True)
+                )
+            
+            await callback.answer("✅ Репорт отмечен как решённый!")
+            
+    except Exception as e:
+        logger.error(f"Error resolving report {report_id}: {e}")
+        await callback.answer("❌ Ошибка при изменении статуса!")
 
 @router.callback_query(F.data.startswith("reopen_report_"))
 async def reopen_report(callback: CallbackQuery):
@@ -506,14 +538,46 @@ async def reopen_report(callback: CallbackQuery):
         return
     
     report_id = int(callback.data.split("_")[2])
+    logger.info(f"Reopening report {report_id}")
     
-    async with async_session() as session:
-        await session.execute(
-            update(Report).where(Report.id == report_id).values(is_resolved=False)
-        )
-        await session.commit()
-        
-        await callback.answer("🔄 Репорт переоткрыт!")
+    try:
+        async with async_session() as session:
+            await session.execute(
+                update(Report).where(Report.id == report_id).values(is_resolved=False)
+            )
+            await session.commit()
+            
+            # Обновляем интерфейс
+            result = await session.execute(
+                select(Report, User).join(User, Report.from_user_id == User.id).where(Report.id == report_id)
+            )
+            report_data = result.one_or_none()
+            
+            if report_data:
+                report, user = report_data
+                status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
+                emoji = status_emoji.get(report.report_type, "📄")
+                
+                text = (
+                    f"🚨 <b>Репорт #{report.id}</b>\n\n"
+                    f"👤 От: @{user.username or 'пользователь'} (ID: {user.telegram_id})\n"
+                    f"📝 Тип: {emoji} {report.report_type}\n"
+                    f"📊 Статус: ⏳ В ожидании\n"
+                    f"🕐 Создан: {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+                    f"💬 <b>Сообщение:</b>\n{report.message}"
+                )
+                
+                await callback.message.edit_text(
+                    text,
+                    parse_mode="HTML",
+                    reply_markup=get_report_detail_keyboard(report_id, False)
+                )
+            
+            await callback.answer("🔄 Репорт переоткрыт!")
+            
+    except Exception as e:
+        logger.error(f"Error reopening report {report_id}: {e}")
+        await callback.answer("❌ Ошибка при изменении статуса!")
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message):
