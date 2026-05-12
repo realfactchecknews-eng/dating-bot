@@ -3,6 +3,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.engine.base import Engine
+from sqlalchemy import text
 from app.config import Config
 
 # Monkey patch to completely disable SQLAlchemy logging
@@ -43,6 +44,10 @@ async_session = async_sessionmaker(
 
 async def init_db():
     async with engine.begin() as conn:
+        # Clear all prepared statement caches before creating tables
+        await conn.execute(text("DISCARD ALL"))
+        await conn.commit()
+        
         await conn.run_sync(Base.metadata.create_all)
 
 async def get_session() -> AsyncSession:
