@@ -582,8 +582,7 @@ async def create_test_users(session: AsyncSession):
             city=test_data["city"],
             bio=test_data["bio"],
             photos=None,  # Можно добавить фото позже
-            is_visible=True,
-            created_at=datetime.utcnow()
+            is_visible=True
         )
         session.add(test_profile)
     

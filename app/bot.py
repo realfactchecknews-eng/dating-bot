@@ -57,7 +57,8 @@ async def handle_cached_statement_error(exception: Exception):
         logger.info("🔄 Detected cached statement error, this should resolve automatically")
         # Don't handle - let SQLAlchemy retry with fresh connection
         return
-    raise exception
+    # Re-raise the exception for other error types
+    raise
 
 async def on_startup():
     logger.info("Starting bot...")
