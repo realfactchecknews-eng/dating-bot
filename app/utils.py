@@ -2,7 +2,7 @@ import aiohttp
 import logging
 from typing import Optional
 from aiogram import Bot
-from sqlalchemy import select, and_, func, text
+from sqlalchemy import select, and_, or_, func, text
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
