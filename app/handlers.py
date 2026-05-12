@@ -810,18 +810,6 @@ async def _perform_search(callback: CallbackQuery):
         
         search_cache[callback.from_user.id] = profiles
         await show_next_profile(callback, session)
-            await callback.message.edit_caption(
-                caption=text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=get_rating_keyboard(target_user.id)
-            )
-        else:
-            await safe_edit_message(
-                callback,
-                text,
-                reply_markup=get_rating_keyboard(target_user.id),
-                parse_mode="HTML"
-            )
     await callback.answer()
 
 @router.callback_query(F.data.startswith("open_chat_"))
