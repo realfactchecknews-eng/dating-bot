@@ -12,7 +12,10 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_recycle=3600,
     future=True,
-    connect_args={"server_settings": {"application_name": "dating_bot"}}
+    connect_args={
+        "server_settings": {"application_name": "dating_bot"},
+        "prepared_statement_cache_size": 0,  # Disable prepared statement cache
+    }
 )
 
 async_session = async_sessionmaker(

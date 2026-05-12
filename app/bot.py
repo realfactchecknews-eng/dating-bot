@@ -25,9 +25,12 @@ logging.basicConfig(
     ]
 )
 
-# Disable SQLAlchemy parameter logging to prevent recursion errors
+# Disable ALL SQLAlchemy logging to prevent recursion errors
+logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
 logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.orm').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=Config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
