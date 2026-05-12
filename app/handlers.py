@@ -778,7 +778,7 @@ async def show_appeal_rating(callback: CallbackQuery):
     await callback.answer("Выбери APPEAL оценку (1-10)")
 
 @router.callback_query(F.data == "back_to_rate")
-async def back_to_rate(callback: CallbackQuery):
+async def _perform_search(callback: CallbackQuery):
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
@@ -789,24 +789,28 @@ async def back_to_rate(callback: CallbackQuery):
             await callback.answer("Сначала создай профиль!")
             return
         
-        result = await get_random_profile_for_rating(session, user.id)
+        profiles = await get_search_profiles(session, user.id, limit=10)
+        logger.info(f"Found {len(profiles)} profiles for user {user.id}")
         
-        if not result:
-            await safe_edit_message(
-                callback,
-                "Нет анкет для оценки 😔",
-                reply_markup=get_back_keyboard()
-            )
-            await callback.answer()
-            return
+        if not profiles:
+            # Создаем тестовых пользователей если их нет
+            await create_test_users(session)
+            
+            # Пробуем поиск снова
+            profiles = await get_search_profiles(session, user.id, limit=10)
+            logger.info(f"After creating test users: Found {len(profiles)} profiles for user {user.id}")
+            
+            if not profiles:
+                await safe_edit_message(
+                    callback,
+                    "Пока нет подходящих анкет 😔\nПопробуй позже или оценивай других пользователей!",
+                    reply_markup=get_back_keyboard()
+                )
+                await callback.answer()
+                return
         
-        profile, target_user = result
-        rating_cache[callback.from_user.id] = target_user.id
-        
-        text = format_profile_text(profile, target_user)
-        text += "\n\n<b>Оцени по шкале 1-10:</b>"
-        
-        if callback.message.photo:
+        search_cache[callback.from_user.id] = profiles
+        await show_next_profile(callback, session)
             await callback.message.edit_caption(
                 caption=text,
                 parse_mode=ParseMode.HTML,
