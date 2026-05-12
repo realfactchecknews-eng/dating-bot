@@ -172,12 +172,29 @@ def get_report_keyboard():
     builder.adjust(2, 2, 1)
     return builder.as_markup()
 
-def get_reports_list_keyboard():
+def get_reports_list_keyboard(reports=None):
     builder = InlineKeyboardBuilder()
+    
+    # Добавляем кнопки для каждого репорта
+    if reports:
+        for report, user in reports:
+            status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
+            emoji = status_emoji.get(report.report_type, "📄")
+            button_text = f"{emoji} #{report.id} - @{user.username or 'user'}"
+            builder.button(text=button_text, callback_data=f"view_report_{report.id}")
+    
+    # Добавляем кнопки управления
     builder.button(text="🔄 Обновить", callback_data="admin_reports")
     builder.button(text="✅ Решённые", callback_data="admin_resolved_reports")
     builder.button(text="🔙 Назад", callback_data="admin_panel")
-    builder.adjust(2, 1)
+    
+    # Настраиваем расположение кнопок
+    if reports:
+        builder.adjust(1)  # Каждая кнопка репорта на новой строке
+        builder.adjust(2, 1)  # Кнопки управления
+    else:
+        builder.adjust(2, 1)  # Только кнопки управления
+    
     return builder.as_markup()
 
 def get_report_detail_keyboard(report_id: int, is_resolved: bool):

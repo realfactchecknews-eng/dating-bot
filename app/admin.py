@@ -336,7 +336,7 @@ async def admin_reports(callback: CallbackQuery):
                 for i, (report, user) in enumerate(reports, 1):
                     status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
                     emoji = status_emoji.get(report.report_type, "📄")
-                    text += f"{i}. {emoji} <b><a href='tg://resolve?domain=&post=0'>#{report.id}</a></b> от @{user.username or 'user'}\n"
+                    text += f"{i}. {emoji} <b>#{report.id}</b> от @{user.username or 'user'}\n"
                     text += f"💬 {report.message[:50]}{'...' if len(report.message) > 50 else ''}\n"
                     text += f"🕐 {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
             
@@ -344,7 +344,7 @@ async def admin_reports(callback: CallbackQuery):
                 await callback.message.edit_text(
                     text,
                     parse_mode="HTML",
-                    reply_markup=get_reports_list_keyboard()
+                    reply_markup=get_reports_list_keyboard(reports)
                 )
             except Exception as e:
                 if "message is not modified" in str(e):
@@ -392,7 +392,7 @@ async def admin_resolved_reports(callback: CallbackQuery):
             await callback.message.edit_text(
                 text,
                 parse_mode="HTML",
-                reply_markup=get_reports_list_keyboard()
+                reply_markup=get_reports_list_keyboard(reports)
             )
         except Exception as e:
             if "message is not modified" in str(e):
