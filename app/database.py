@@ -9,13 +9,16 @@ Base = declarative_base()
 engine = create_async_engine(
     Config.DATABASE_URL,
     echo=False,  # Disable SQL logging to prevent recursion errors
+    echo_pool=False,  # Disable pool logging
     pool_pre_ping=True,
     pool_recycle=3600,
     future=True,
     connect_args={
         "server_settings": {"application_name": "dating_bot"},
         "prepared_statement_cache_size": 0,  # Disable prepared statement cache
-    }
+    },
+    # Disable all logging
+    logging_name=None
 )
 
 async_session = async_sessionmaker(

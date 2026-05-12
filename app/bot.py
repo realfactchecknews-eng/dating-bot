@@ -25,12 +25,23 @@ logging.basicConfig(
     ]
 )
 
-# Disable ALL SQLAlchemy logging to prevent recursion errors
-logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
-logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
-logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
-logging.getLogger('sqlalchemy.orm').setLevel(logging.WARNING)
+# Completely disable SQLAlchemy logging to prevent recursion errors
+sqlalchemy_loggers = [
+    'sqlalchemy',
+    'sqlalchemy.engine',
+    'sqlalchemy.pool',
+    'sqlalchemy.dialects',
+    'sqlalchemy.orm',
+    'sqlalchemy.dialects.postgresql',
+    'sqlalchemy.dialects.postgresql.asyncpg'
+]
+
+for logger_name in sqlalchemy_loggers:
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.CRITICAL)  # Only critical errors
+    logger.handlers = []  # Remove all handlers
+    logger.propagate = False  # Don't propagate to parent loggers
+    logger.addHandler(logging.NullHandler())  # Add null handler
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=Config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
