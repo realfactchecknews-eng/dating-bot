@@ -320,14 +320,23 @@ async def like_profile(callback: CallbackQuery):
         session.add(like)
         await session.commit()
         
+        # Отправляем уведомление о лайке
+        target_result = await session.execute(
+            select(User).where(User.id == target_id)
+        )
+        target_user = target_result.scalar_one()
+        
+        try:
+            await callback.bot.send_message(
+                target_user.telegram_id,
+                f"❤️ Тебя лайкнул(а) @{callback.from_user.username or 'пользователь'}!"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send like notification: {e}")
+        
         is_mutual = await check_mutual_like(session, user.id, target_id)
         if is_mutual:
             await create_match(session, user.id, target_id)
-            
-            target_result = await session.execute(
-                select(User).where(User.id == target_id)
-            )
-            target_user = target_result.scalar_one()
             
             await callback.bot.send_message(
                 target_user.telegram_id,
