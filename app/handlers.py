@@ -496,7 +496,8 @@ async def start_rating(callback: CallbackQuery, state: FSMContext):
         result = await get_random_profile_for_rating(session, user.id)
         
         if not result:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "Нет анкет для оценки 😔 Все уже оценены или пока мало пользователей.",
                 reply_markup=get_back_keyboard()
             )
@@ -557,7 +558,8 @@ async def back_to_rate(callback: CallbackQuery):
         result = await get_random_profile_for_rating(session, user.id)
         
         if not result:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "Нет анкет для оценки 😔",
                 reply_markup=get_back_keyboard()
             )
@@ -577,10 +579,11 @@ async def back_to_rate(callback: CallbackQuery):
                 reply_markup=get_rating_keyboard(target_user.id)
             )
         else:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=get_rating_keyboard(target_user.id)
+                reply_markup=get_rating_keyboard(target_user.id),
+                parse_mode="HTML"
             )
     await callback.answer()
 
@@ -641,10 +644,11 @@ async def open_chat(callback: CallbackQuery, state: FSMContext):
         await state.update_data(chat_user_id=target_user_id, is_anonymous=False)
         await state.set_state(ChatStates.messaging)
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             chat_text,
-            parse_mode="Markdown",
-            reply_markup=get_chat_keyboard(target_user_id, is_anonymous=False)
+            reply_markup=get_chat_keyboard(target_user_id, is_anonymous=False),
+            parse_mode="Markdown"
         )
     await callback.answer()
 
@@ -747,10 +751,11 @@ async def process_psl_rating(callback: CallbackQuery, state: FSMContext):
             reply_markup=get_appeal_rating_keyboard(target_id)
         )
     else:
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             text,
-            parse_mode=ParseMode.HTML,
-            reply_markup=get_appeal_rating_keyboard(target_id)
+            reply_markup=get_appeal_rating_keyboard(target_id),
+            parse_mode="HTML"
         )
     await callback.answer(f"PSL: {psl_score}/10")
 
@@ -802,10 +807,11 @@ async def process_appeal_rating(callback: CallbackQuery, state: FSMContext):
                     reply_markup=get_rating_result_keyboard()
                 )
             else:
-                await callback.message.edit_text(
+                await safe_edit_message(
+                    callback,
                     text,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=get_rating_result_keyboard()
+                    reply_markup=get_rating_result_keyboard(),
+                    parse_mode="HTML"
                 )
         
         await state.clear()
@@ -825,13 +831,15 @@ async def show_matches(callback: CallbackQuery):
         matches = await get_user_matches(session, user.id)
         
         if not matches:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "У тебя пока нет мэтчей 😔\n\n"
                 "Лайкай понравившихся людей и жди взаимности!",
                 reply_markup=get_back_keyboard()
             )
         else:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 f"💘 Твои мэтчи ({len(matches)}):\n\n"
                 "Нажми на имя, чтобы начать чат",
                 reply_markup=get_matches_keyboard(matches)
@@ -840,7 +848,8 @@ async def show_matches(callback: CallbackQuery):
 
 @router.callback_query(F.data == "settings")
 async def settings(callback: CallbackQuery):
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         "⚙️ Настройки профиля:",
         reply_markup=get_settings_keyboard()
     )
@@ -1009,10 +1018,11 @@ async def show_news(callback: CallbackQuery):
                 text += f"{news.content}\n"
                 text += f"<i>{news.created_at.strftime('%d.%m.%Y %H:%M')}</i>\n\n"
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             text,
-            parse_mode="HTML",
-            reply_markup=get_news_keyboard(is_admin=is_admin(callback.from_user.id))
+            reply_markup=get_news_keyboard(is_admin=is_admin(callback.from_user.id)),
+            parse_mode="HTML"
         )
     await callback.answer()
 
@@ -1022,7 +1032,7 @@ async def add_news_start(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Нет доступа!")
         return
     
-    await callback.message.edit_text("📝 Введи заголовок новости:")
+    await safe_edit_message(callback, "📝 Введи заголовок новости:")
     await state.set_state(NewsStates.title)
     await callback.answer()
 
@@ -1091,10 +1101,11 @@ async def manage_news(callback: CallbackQuery):
         await callback.answer("Нет доступа!")
         return
     
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         "📝 <b>Управление новостями:</b>",
-        parse_mode="HTML",
-        reply_markup=get_news_management_keyboard()
+        reply_markup=get_news_management_keyboard(),
+        parse_mode="HTML"
     )
     await callback.answer()
 
@@ -1119,21 +1130,23 @@ async def list_news(callback: CallbackQuery):
                 text += f"{status} <b>{news.title}</b>\n"
                 text += f"ID: {news.id} | {news.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             text,
-            parse_mode="HTML",
-            reply_markup=get_news_management_keyboard()
+            reply_markup=get_news_management_keyboard(),
+            parse_mode="HTML"
         )
     await callback.answer()
 
 # Обработчики для репортов
 @router.callback_query(F.data == "report")
 async def show_report_menu(callback: CallbackQuery):
-    await callback.message.edit_text(
+    await safe_edit_message(
+        callback,
         "🚨 <b>Выбери тип репорта:</b>\n\n"
         "Опиши проблему или ошибку, с которой столкнулся.",
-        parse_mode="HTML",
-        reply_markup=get_report_keyboard()
+        reply_markup=get_report_keyboard(),
+        parse_mode="HTML"
     )
     await callback.answer()
 
@@ -1211,12 +1224,13 @@ async def continue_rating(callback: CallbackQuery, state: FSMContext):
         result = await get_random_profile_for_rating(session, user.id)
         
         if not result:
-            await callback.message.edit_text(
+            await safe_edit_message(
+                callback,
                 "😔 <b>Анкет для оценки нет!</b>\n\n"
                 "Попробуй позже или пригласи друзей в бот!\n\n"
                 "📢 Хочешь больше анкет? Приглашай друзей — чем больше пользователей, тем больше анкет для оценки!",
-                parse_mode="HTML",
-                reply_markup=get_back_keyboard()
+                reply_markup=get_back_keyboard(),
+                parse_mode="HTML"
             )
             await callback.answer()
             return
@@ -1293,7 +1307,8 @@ async def delete_profile(callback: CallbackQuery):
             await session.execute(delete(User).where(User.id == user.id))
             await session.commit()
         
-        await callback.message.edit_text(
+        await safe_edit_message(
+            callback,
             "😔 Твой профиль удален.\n\n"
             "Если передумаешь, создай новый через /start"
         )
