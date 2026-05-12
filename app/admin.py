@@ -328,6 +328,7 @@ async def admin_reports(callback: CallbackQuery):
                 .order_by(Report.created_at.desc()).limit(10)
             )
             reports = result.all()
+            logger.info(f"Found {len(reports)} unresolved reports")
             
             if not reports:
                 text = "🚨 <b>Репорты</b>\n\n✅ Нет нерешённых репортов!"
@@ -406,11 +407,15 @@ async def admin_resolved_reports(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("view_report_"))
 async def view_report(callback: CallbackQuery):
+    logger.info(f"View report callback received: {callback.data}")
+    
     if not is_admin(callback.from_user.id):
+        logger.warning(f"Non-admin user {callback.from_user.id} tried to view report")
         await callback.answer("Нет доступа!")
         return
     
     report_id = int(callback.data.split("_")[2])
+    logger.info(f"Viewing report {report_id}")
     
     async with async_session() as session:
         result = await session.execute(

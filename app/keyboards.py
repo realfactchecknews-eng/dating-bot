@@ -181,7 +181,9 @@ def get_reports_list_keyboard(reports=None):
             status_emoji = {"bug": "🐛", "user": "👤", "profile": "📝", "other": "📄"}
             emoji = status_emoji.get(report.report_type, "📄")
             button_text = f"{emoji} #{report.id} - @{user.username or 'user'}"
-            builder.button(text=button_text, callback_data=f"view_report_{report.id}")
+            callback_data = f"view_report_{report.id}"
+            builder.button(text=button_text, callback_data=callback_data)
+            print(f"Created button: {button_text} -> {callback_data}")  # Debug logging
     
     # Добавляем кнопки управления
     builder.button(text="🔄 Обновить", callback_data="admin_reports")
