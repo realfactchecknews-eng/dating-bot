@@ -27,3 +27,7 @@ class AdminStates(StatesGroup):
 
 class SearchStates(StatesGroup):
     browsing = State()
+
+class NewsStates(StatesGroup):
+    title = State()
+    content = State()

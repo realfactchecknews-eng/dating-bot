@@ -115,3 +115,13 @@ class Statistic(Base):
     new_users = Column(Integer, default=0)
     total_ratings = Column(Integer, default=0)
     total_matches = Column(Integer, default=0)
+
+class News(Base):
+    __tablename__ = "news"
+    
+    id = Column(Integer, primary_key=True)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    author_id = Column(Integer, ForeignKey("users.id"))

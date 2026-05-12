@@ -7,10 +7,11 @@ def get_main_menu_keyboard(is_admin=False):
     builder.button(text="👤 Мой профиль", callback_data="my_profile")
     builder.button(text="⭐ Оценивать", callback_data="rate_profiles")
     builder.button(text="🔔 Мэтчи", callback_data="my_matches")
+    builder.button(text="📰 Новости", callback_data="news")
     builder.button(text="⚙️ Настройки", callback_data="settings")
     if is_admin:
         builder.button(text="🔧 Админ", callback_data="admin_panel")
-    builder.adjust(2)
+    builder.adjust(2, 2, 2)
     return builder.as_markup()
 
 def get_registration_keyboard():
@@ -129,4 +130,22 @@ def get_matches_keyboard(matches):
 def get_skip_keyboard():
     builder = InlineKeyboardBuilder()
     builder.button(text="⏭ Пропустить", callback_data="skip_step")
+    return builder.as_markup()
+
+def get_news_keyboard(is_admin=False):
+    builder = InlineKeyboardBuilder()
+    if is_admin:
+        builder.button(text="➕ Добавить новость", callback_data="add_news")
+        builder.button(text="📝 Управление", callback_data="manage_news")
+    builder.button(text="🔄 Обновить", callback_data="news")
+    builder.button(text="🔙 Назад", callback_data="main_menu")
+    builder.adjust(2 if is_admin else 1, 1)
+    return builder.as_markup()
+
+def get_news_management_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="➕ Добавить новость", callback_data="add_news")
+    builder.button(text="📋 Список новостей", callback_data="list_news")
+    builder.button(text="🔙 Назад", callback_data="news")
+    builder.adjust(2, 1)
     return builder.as_markup()

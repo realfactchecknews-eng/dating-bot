@@ -8,14 +8,15 @@ from aiogram.enums import ParseMode
 from sqlalchemy import select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.states import RegistrationStates, ProfileEditStates, RatingStates, AdminStates, SearchStates
-from app.models import User, Profile, Rating, Like, Match
+from app.states import RegistrationStates, ProfileEditStates, RatingStates, AdminStates, SearchStates, NewsStates
+from app.models import User, Profile, Rating, Like, Match, News
 from app.keyboards import (
     get_main_menu_keyboard, get_registration_keyboard, get_gender_keyboard,
     get_orientation_keyboard, get_psl_rating_keyboard, get_appeal_rating_keyboard,
     get_search_action_keyboard, get_rating_keyboard, get_profile_edit_keyboard,
     get_confirm_keyboard, get_settings_keyboard, get_admin_keyboard,
-    get_back_keyboard, get_matches_keyboard, get_skip_keyboard, get_rating_result_keyboard
+    get_back_keyboard, get_matches_keyboard, get_skip_keyboard, get_rating_result_keyboard,
+    get_news_keyboard, get_news_management_keyboard
 )
 from app.utils import (
     get_or_create_user, get_profile_by_telegram_id, format_profile_text,
@@ -747,6 +748,142 @@ async def finish_edit_photos(message: Message, state: FSMContext):
             await message.answer("✅ Фото обновлены!", reply_markup=get_main_menu_keyboard())
     
     await state.clear()
+
+# Обработчики для новостей
+@router.callback_query(F.data == "news")
+async def show_news(callback: CallbackQuery):
+    async with async_session() as session:
+        # Получаем последние 5 новостей
+        result = await session.execute(
+            select(News).where(News.is_active == True).order_by(News.created_at.desc()).limit(5)
+        )
+        news_list = result.scalars().all()
+        
+        if not news_list:
+            text = "📰 <b>Новостей пока нет</b>\n\nСледите за обновлениями!"
+        else:
+            text = "📰 <b>Последние новости:</b>\n\n"
+            for i, news in enumerate(news_list, 1):
+                text += f"🔸 <b>{news.title}</b>\n"
+                text += f"{news.content}\n"
+                text += f"<i>{news.created_at.strftime('%d.%m.%Y %H:%M')}</i>\n\n"
+        
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=get_news_keyboard(is_admin=is_admin(callback.from_user.id))
+        )
+    await callback.answer()
+
+@router.callback_query(F.data == "add_news")
+async def add_news_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Нет доступа!")
+        return
+    
+    await callback.message.edit_text("📝 Введи заголовок новости:")
+    await state.set_state(NewsStates.title)
+    await callback.answer()
+
+@router.message(NewsStates.title)
+async def process_news_title(message: Message, state: FSMContext):
+    if len(message.text) > 200:
+        await message.answer("Слишком длинный заголовок. Максимум 200 символов:")
+        return
+    
+    await state.update_data(title=message.text)
+    await message.answer("📄 Введи текст новости:")
+    await state.set_state(NewsStates.content)
+
+@router.message(NewsStates.content)
+async def process_news_content(message: Message, state: FSMContext, bot: Bot):
+    if len(message.text) > 2000:
+        await message.answer("Слишком длинный текст. Максимум 2000 символов:")
+        return
+    
+    data = await state.get_data()
+    
+    async with async_session() as session:
+        # Получаем ID пользователя
+        user_result = await session.execute(
+            select(User).where(User.telegram_id == message.from_user.id)
+        )
+        user = user_result.scalar_one()
+        
+        # Создаем новость
+        news = News(
+            title=data["title"],
+            content=message.text,
+            author_id=user.id
+        )
+        session.add(news)
+        await session.commit()
+        
+        # Рассылаем новость всем активным пользователям
+        users_result = await session.execute(
+            select(User).where(User.is_active == True, User.is_banned == False)
+        )
+        users = users_result.scalars().all()
+        
+        news_text = f"📰 <b>{data['title']}</b>\n\n{message.text}"
+        
+        sent_count = 0
+        for user in users:
+            try:
+                await bot.send_message(user.telegram_id, news_text, parse_mode="HTML")
+                sent_count += 1
+            except Exception as e:
+                logger.error(f"Failed to send news to user {user.telegram_id}: {e}")
+        
+        await message.answer(
+            f"✅ Новость опубликована!\n\n"
+            f"📊 Отправлено: {sent_count} пользователям\n"
+            f"📝 Заголовок: {data['title']}",
+            reply_markup=get_main_menu_keyboard(is_admin=is_admin(message.from_user.id))
+        )
+    
+    await state.clear()
+
+@router.callback_query(F.data == "manage_news")
+async def manage_news(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Нет доступа!")
+        return
+    
+    await callback.message.edit_text(
+        "📝 <b>Управление новостями:</b>",
+        parse_mode="HTML",
+        reply_markup=get_news_management_keyboard()
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "list_news")
+async def list_news(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Нет доступа!")
+        return
+    
+    async with async_session() as session:
+        result = await session.execute(
+            select(News).order_by(News.created_at.desc()).limit(10)
+        )
+        news_list = result.scalars().all()
+        
+        if not news_list:
+            text = "📰 Новостей пока нет"
+        else:
+            text = "📰 <b>Последние новости:</b>\n\n"
+            for i, news in enumerate(news_list, 1):
+                status = "✅" if news.is_active else "❌"
+                text += f"{status} <b>{news.title}</b>\n"
+                text += f"ID: {news.id} | {news.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+        
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=get_news_management_keyboard()
+        )
+    await callback.answer()
 
 @router.callback_query(F.data == "delete_profile")
 async def delete_profile(callback: CallbackQuery):
