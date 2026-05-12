@@ -29,7 +29,7 @@ from app.database import async_session
 
 router = Router()
 logger = logging.getLogger(__name__)
-# Fixed version: 2.2 - rate_user handler fix
+# Fixed version: 2.3 - duplicate rating fix
 
 # Безопасное редактирование сообщения
 async def safe_edit_message(callback: CallbackQuery, text: str, reply_markup=None, parse_mode=None):
