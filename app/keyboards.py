@@ -75,8 +75,9 @@ def get_profile_edit_keyboard():
     builder.button(text="🏙 Город", callback_data="edit_city")
     builder.button(text="📄 О себе", callback_data="edit_bio")
     builder.button(text="📸 Фото", callback_data="edit_photos")
-    builder.button(text="🔙 Назад", callback_data="main_menu")
-    builder.adjust(2, 2, 1, 1)
+    builder.button(text="� Моя оценка", callback_data="my_rating")
+    builder.button(text="�🔙 Назад", callback_data="main_menu")
+    builder.adjust(2, 2, 2, 1)
     return builder.as_markup()
 
 def get_confirm_keyboard():
@@ -113,7 +114,7 @@ def get_back_keyboard():
 
 def get_rating_result_keyboard():
     builder = InlineKeyboardBuilder()
-    builder.button(text="⭐ Оценивать дальше", callback_data="rate_profiles")
+    builder.button(text="⭐ Оценивать дальше", callback_data="continue_rating")
     builder.button(text="🔙 В меню", callback_data="main_menu")
     builder.adjust(1)
     return builder.as_markup()

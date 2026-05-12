@@ -251,6 +251,68 @@ async def show_my_profile(callback: CallbackQuery, bot: Bot):
                 reply_markup=get_profile_edit_keyboard())
     await callback.answer()
 
+@router.callback_query(F.data == "my_rating")
+async def show_my_rating(callback: CallbackQuery):
+    async with async_session() as session:
+        user_result = await session.execute(select(User).where(User.telegram_id == callback.from_user.id))
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            await callback.answer("Сначала создай профиль!")
+            return
+        
+        profile = await get_profile_by_telegram_id(session, callback.from_user.id)
+        if not profile:
+            await callback.answer("У тебя нет профиля!")
+            return
+        
+        # Получаем оценки пользователя
+        ratings_result = await session.execute(
+            select(Rating).where(Rating.rated_id == user.id)
+        )
+        ratings = ratings_result.scalars().all()
+        
+        if not ratings:
+            await callback.message.edit_text(
+                "📊 <b>Твоя оценка:</b>\n\n"
+                "У тебя пока нет оценок от других пользователей.\n"
+                "Оценивай других, чтобы получал оценки в ответ!",
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_profile_edit_keyboard()
+            )
+            return
+        
+        # Рассчитываем средние оценки
+        psl_scores = [r.psl_score for r in ratings if r.psl_score is not None]
+        appeal_scores = [r.appeal_score for r in ratings if r.appeal_score is not None]
+        
+        avg_psl = sum(psl_scores) / len(psl_scores) if psl_scores else 0
+        avg_appeal = sum(appeal_scores) / len(appeal_scores) if appeal_scores else 0
+        
+        psl_desc = get_psl_description(int(round(avg_psl)))
+        appeal_desc = get_appeal_description(int(round(avg_appeal)))
+        
+        text = (
+            f"📊 <b>Твоя оценка:</b>\n\n"
+            f"👥 Всего оценок: {len(ratings)}\n\n"
+            f"📊 <b>PSL:</b> {avg_psl:.1f}/10 ({psl_desc})\n"
+            f"💖 <b>APPEAL:</b> {avg_appeal:.1f}/10 ({appeal_desc})\n\n"
+        )
+        
+        if profile.psl_rating and profile.appeal_rating:
+            text += (
+                f"📈 <b>Текущий рейтинг:</b>\n"
+                f"📊 PSL: {profile.psl_rating:.1f}/10\n"
+                f"💖 APPEAL: {profile.appeal_rating:.1f}/10"
+            )
+        
+        await callback.message.edit_text(
+            text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=get_profile_edit_keyboard()
+        )
+    await callback.answer()
+
 search_cache = {}
 
 @router.callback_query(F.data == "search")
@@ -1092,9 +1154,9 @@ async def handle_report_message(message: Message, state: FSMContext, bot: Bot):
     
     await state.clear()
 
-# Исправление бага с кнопкой "Оценивать дальше"
-@router.callback_query(F.data == "rate_profiles")
-async def start_rating(callback: CallbackQuery, state: FSMContext):
+# Обработчик кнопки "Оценивать дальше"
+@router.callback_query(F.data == "continue_rating")
+async def continue_rating(callback: CallbackQuery, state: FSMContext):
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
@@ -1131,7 +1193,7 @@ async def start_rating(callback: CallbackQuery, state: FSMContext):
             photo_file_id = profile.photos[0]
             await callback.bot.send_photo(
                 callback.from_user.id,
-                photo=photo_file_id,
+                photo_file_id,
                 caption=text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=get_rating_keyboard(target_user.id)
@@ -1143,6 +1205,8 @@ async def start_rating(callback: CallbackQuery, state: FSMContext):
                 parse_mode=ParseMode.HTML,
                 reply_markup=get_rating_keyboard(target_user.id)
             )
+    
+    await state.set_state(RatingStates.voting)
     await callback.answer()
 
 # Команда для технических работ (только для админа)
