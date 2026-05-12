@@ -43,11 +43,13 @@ async_session = async_sessionmaker(
 )
 
 async def init_db():
-    async with engine.begin() as conn:
-        # Clear all prepared statement caches before creating tables
+    # Clear all prepared statement caches outside of transaction
+    async with engine.connect() as conn:
         await conn.execute(text("DISCARD ALL"))
-        await conn.commit()
-        
+        await conn.close()
+    
+    # Create tables in a separate transaction
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 async def get_session() -> AsyncSession:
