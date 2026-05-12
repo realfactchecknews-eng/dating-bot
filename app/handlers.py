@@ -171,11 +171,6 @@ async def confirm_profile(callback: CallbackQuery, state: FSMContext, bot: Bot):
     async with async_session() as session:
         user = await get_or_create_user(session, callback.from_user.id, callback.from_user.username)
         
-        photos_paths = []
-        for i, file_id in enumerate(data["photos"]):
-            path = await download_photo(bot, file_id, user.id, i)
-            photos_paths.append(path)
-        
         profile = Profile(
             user_id=user.id,
             name=data["name"],
@@ -184,7 +179,7 @@ async def confirm_profile(callback: CallbackQuery, state: FSMContext, bot: Bot):
             orientation=data["orientation"],
             city=data.get("city", ""),
             bio=data["bio"],
-            photos=photos_paths
+            photos=data["photos"]  # Сохраняем file_id напрямую
         )
         session.add(profile)
         await session.commit()
@@ -548,6 +543,128 @@ async def toggle_visibility(callback: CallbackQuery):
             await session.commit()
             status = "видимый" if profile.is_visible else "скрытый"
             await callback.answer(f"Профиль теперь {status}!")
+
+# Обработчики редактирования профиля
+@router.callback_query(F.data.startswith("edit_"))
+async def edit_profile_field(callback: CallbackQuery, state: FSMContext):
+    field = callback.data.split("_")[1]
+    
+    if field == "name":
+        await callback.message.edit_text("Введи новое имя:")
+        await state.set_state(ProfileEditStates.name)
+    elif field == "age":
+        await callback.message.edit_text("Введи новый возраст (18-100):")
+        await state.set_state(ProfileEditStates.age)
+    elif field == "city":
+        await callback.message.edit_text("Введи новый город:")
+        await state.set_state(ProfileEditStates.city)
+    elif field == "bio":
+        await callback.message.edit_text("Введи новую биографию (до 500 символов):")
+        await state.set_state(ProfileEditStates.bio)
+    elif field == "photos":
+        await callback.message.edit_text("Отправь новые фото (до 5 штук):")
+        await state.set_state(ProfileEditStates.photos)
+        await state.update_data(photos=[])
+    
+    await state.update_data(edit_field=field)
+    await callback.answer()
+
+@router.message(ProfileEditStates.name)
+async def process_edit_name(message: Message, state: FSMContext):
+    if len(message.text) > 100:
+        await message.answer("Слишком длинно. Максимум 100 символов:")
+        return
+    
+    async with async_session() as session:
+        profile = await get_profile_by_telegram_id(session, message.from_user.id)
+        if profile:
+            profile.name = message.text
+            await session.commit()
+            await message.answer("✅ Имя обновлено!", reply_markup=get_main_menu_keyboard())
+    
+    await state.clear()
+
+@router.message(ProfileEditStates.age)
+async def process_edit_age(message: Message, state: FSMContext):
+    try:
+        age = int(message.text)
+        if age < 18 or age > 100:
+            await message.answer("Возраст должен быть от 18 до 100:")
+            return
+        
+        async with async_session() as session:
+            profile = await get_profile_by_telegram_id(session, message.from_user.id)
+            if profile:
+                profile.age = age
+                await session.commit()
+                await message.answer("✅ Возраст обновлён!", reply_markup=get_main_menu_keyboard())
+        
+        await state.clear()
+    except ValueError:
+        await message.answer("Введи корректное число:")
+
+@router.message(ProfileEditStates.city)
+async def process_edit_city(message: Message, state: FSMContext):
+    if len(message.text) > 100:
+        await message.answer("Слишком длинно. Максимум 100 символов:")
+        return
+    
+    async with async_session() as session:
+        profile = await get_profile_by_telegram_id(session, message.from_user.id)
+        if profile:
+            profile.city = message.text
+            await session.commit()
+            await message.answer("✅ Город обновлён!", reply_markup=get_main_menu_keyboard())
+    
+    await state.clear()
+
+@router.message(ProfileEditStates.bio)
+async def process_edit_bio(message: Message, state: FSMContext):
+    if len(message.text) > 500:
+        await message.answer("Слишком длинно. Максимум 500 символов:")
+        return
+    
+    async with async_session() as session:
+        profile = await get_profile_by_telegram_id(session, message.from_user.id)
+        if profile:
+            profile.bio = message.text
+            await session.commit()
+            await message.answer("✅ Биография обновлена!", reply_markup=get_main_menu_keyboard())
+    
+    await state.clear()
+
+@router.message(ProfileEditStates.photos, F.photo)
+async def process_edit_photos(message: Message, state: FSMContext):
+    data = await state.get_data()
+    photos = data.get("photos", [])
+    
+    if len(photos) >= 5:
+        await message.answer("Максимум 5 фото. Напиши 'готово':")
+        return
+    
+    file_id = message.photo[-1].file_id
+    photos.append(file_id)
+    await state.update_data(photos=photos)
+    
+    await message.answer(f"Фото {len(photos)}/5 добавлено. Отправь еще или напиши 'готово':")
+
+@router.message(ProfileEditStates.photos, F.text.lower() == "готово")
+async def finish_edit_photos(message: Message, state: FSMContext):
+    data = await state.get_data()
+    photos = data.get("photos", [])
+    
+    if not photos:
+        await message.answer("Нужно хотя бы одно фото!")
+        return
+    
+    async with async_session() as session:
+        profile = await get_profile_by_telegram_id(session, message.from_user.id)
+        if profile:
+            profile.photos = photos
+            await session.commit()
+            await message.answer("✅ Фото обновлены!", reply_markup=get_main_menu_keyboard())
+    
+    await state.clear()
 
 @router.callback_query(F.data == "delete_profile")
 async def delete_profile(callback: CallbackQuery):
