@@ -340,11 +340,20 @@ async def admin_reports(callback: CallbackQuery):
                     text += f"💬 {report.message[:50]}{'...' if len(report.message) > 50 else ''}\n"
                     text += f"🕐 {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
             
-            await callback.message.edit_text(
-                text,
-                parse_mode="HTML",
-                reply_markup=get_reports_list_keyboard()
-            )
+            try:
+                await callback.message.edit_text(
+                    text,
+                    parse_mode="HTML",
+                    reply_markup=get_reports_list_keyboard()
+                )
+            except Exception as e:
+                if "message is not modified" in str(e):
+                    # Сообщение не изменилось, это нормально
+                    await callback.answer()
+                else:
+                    # Другая ошибка
+                    logger.error(f"Error updating reports list: {e}")
+                    raise
     except Exception as e:
         logger.error(f"Error fetching reports: {e}")
         await callback.message.edit_text(
@@ -379,11 +388,20 @@ async def admin_resolved_reports(callback: CallbackQuery):
                 text += f"💬 {report.message[:50]}{'...' if len(report.message) > 50 else ''}\n"
                 text += f"🕐 {report.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
         
-        await callback.message.edit_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=get_reports_list_keyboard()
-        )
+        try:
+            await callback.message.edit_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=get_reports_list_keyboard()
+            )
+        except Exception as e:
+            if "message is not modified" in str(e):
+                # Сообщение не изменилось, это нормально
+                await callback.answer()
+            else:
+                # Другая ошибка
+                logger.error(f"Error updating resolved reports list: {e}")
+                raise
     await callback.answer()
 
 @router.callback_query(F.data.startswith("view_report_"))
