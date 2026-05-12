@@ -282,10 +282,10 @@ async def show_my_profile(callback: CallbackQuery, state: FSMContext):
         if profile.photos:
             photo_file_id = profile.photos[0]
             try:
-            await callback.message.delete()
-        except Exception as e:
-            logger.error(f"Failed to delete message: {e}")
-            # Продолжаем даже если не удалось удалить
+                await callback.message.delete()
+            except Exception as e:
+                logger.error(f"Failed to delete message: {e}")
+                # Продолжаем даже если не удалось удалить
             await bot.send_photo(
                 callback.from_user.id,
                 photo=photo_file_id,
