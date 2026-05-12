@@ -777,7 +777,7 @@ async def show_appeal_rating(callback: CallbackQuery):
     await callback.answer("Выбери APPEAL оценку (1-10)")
 
 @router.callback_query(F.data == "back_to_rate")
-async def _perform_search(callback: CallbackQuery):
+async def back_to_rate(callback: CallbackQuery):
     async with async_session() as session:
         user_result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
