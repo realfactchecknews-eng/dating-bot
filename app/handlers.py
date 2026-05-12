@@ -634,25 +634,25 @@ async def edit_profile_field(callback: CallbackQuery, state: FSMContext):
     
     if field == "name":
         await callback.message.edit_text("Введи новое имя:")
-        await state.set_state(ProfileEditStates.name)
+        await state.set_state(ProfileEditStates.edit_name)
     elif field == "age":
         await callback.message.edit_text("Введи новый возраст (18-100):")
-        await state.set_state(ProfileEditStates.age)
+        await state.set_state(ProfileEditStates.edit_age)
     elif field == "city":
         await callback.message.edit_text("Введи новый город:")
-        await state.set_state(ProfileEditStates.city)
+        await state.set_state(ProfileEditStates.edit_city)
     elif field == "bio":
         await callback.message.edit_text("Введи новую биографию (до 500 символов):")
-        await state.set_state(ProfileEditStates.bio)
+        await state.set_state(ProfileEditStates.edit_bio)
     elif field == "photos":
         await callback.message.edit_text("Отправь новые фото (до 5 штук):")
-        await state.set_state(ProfileEditStates.photos)
+        await state.set_state(ProfileEditStates.edit_photos)
         await state.update_data(photos=[])
     
     await state.update_data(edit_field=field)
     await callback.answer()
 
-@router.message(ProfileEditStates.name)
+@router.message(ProfileEditStates.edit_name)
 async def process_edit_name(message: Message, state: FSMContext):
     if len(message.text) > 100:
         await message.answer("Слишком длинно. Максимум 100 символов:")
@@ -667,7 +667,7 @@ async def process_edit_name(message: Message, state: FSMContext):
     
     await state.clear()
 
-@router.message(ProfileEditStates.age)
+@router.message(ProfileEditStates.edit_age)
 async def process_edit_age(message: Message, state: FSMContext):
     try:
         age = int(message.text)
@@ -686,7 +686,7 @@ async def process_edit_age(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("Введи корректное число:")
 
-@router.message(ProfileEditStates.city)
+@router.message(ProfileEditStates.edit_city)
 async def process_edit_city(message: Message, state: FSMContext):
     if len(message.text) > 100:
         await message.answer("Слишком длинно. Максимум 100 символов:")
@@ -701,7 +701,7 @@ async def process_edit_city(message: Message, state: FSMContext):
     
     await state.clear()
 
-@router.message(ProfileEditStates.bio)
+@router.message(ProfileEditStates.edit_bio)
 async def process_edit_bio(message: Message, state: FSMContext):
     if len(message.text) > 500:
         await message.answer("Слишком длинно. Максимум 500 символов:")
@@ -716,7 +716,7 @@ async def process_edit_bio(message: Message, state: FSMContext):
     
     await state.clear()
 
-@router.message(ProfileEditStates.photos, F.photo)
+@router.message(ProfileEditStates.edit_photos, F.photo)
 async def process_edit_photos(message: Message, state: FSMContext):
     data = await state.get_data()
     photos = data.get("photos", [])
@@ -731,7 +731,7 @@ async def process_edit_photos(message: Message, state: FSMContext):
     
     await message.answer(f"Фото {len(photos)}/5 добавлено. Отправь еще или напиши 'готово':")
 
-@router.message(ProfileEditStates.photos, F.text.lower() == "готово")
+@router.message(ProfileEditStates.edit_photos, F.text.lower() == "готово")
 async def finish_edit_photos(message: Message, state: FSMContext):
     data = await state.get_data()
     photos = data.get("photos", [])

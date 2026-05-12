@@ -11,11 +11,11 @@ class RegistrationStates(StatesGroup):
     confirm = State()
 
 class ProfileEditStates(StatesGroup):
-    name = State()
-    age = State()
-    city = State()
-    bio = State()
-    photos = State()
+    edit_name = State()
+    edit_age = State()
+    edit_city = State()
+    edit_bio = State()
+    edit_photos = State()
 
 class RatingStates(StatesGroup):
     voting = State()
