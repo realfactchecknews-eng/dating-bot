@@ -416,6 +416,7 @@ async def start_search(callback: CallbackQuery):
             return
         
         profiles = await get_search_profiles(session, user.id, limit=10)
+        logger.info(f"Found {len(profiles)} profiles for user {user.id}")
         
         if not profiles:
             await safe_edit_message(
@@ -432,6 +433,7 @@ async def start_search(callback: CallbackQuery):
 async def show_next_profile(callback: CallbackQuery, session: AsyncSession):
     user_id = callback.from_user.id
     profiles = search_cache.get(user_id, [])
+    logger.info(f"Showing next profile for user {user_id}, cache has {len(profiles)} profiles")
     
     if not profiles:
         await safe_edit_message(
