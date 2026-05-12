@@ -1,8 +1,7 @@
-import os
 import logging
 from typing import Optional
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
@@ -20,7 +19,7 @@ from app.keyboards import (
 )
 from app.utils import (
     get_or_create_user, get_profile_by_telegram_id, format_profile_text,
-    download_photo, update_user_rating, check_mutual_like, create_match,
+    update_user_rating, check_mutual_like, create_match,
     get_search_profiles, get_random_profile_for_rating, get_user_matches,
     is_admin, get_psl_description, get_appeal_description
 )
@@ -231,20 +230,15 @@ async def show_my_profile(callback: CallbackQuery, bot: Bot):
         text = format_profile_text(profile, user)
         
         if profile.photos:
-            photo_path = profile.photos[0]
-            if os.path.exists(photo_path):
-                photo = FSInputFile(photo_path)
-                await callback.message.delete()
-                await bot.send_photo(
-                    callback.from_user.id,
-                    photo=photo,
-                    caption=text,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=get_profile_edit_keyboard()
-                )
-            else:
-                await callback.message.edit_text(text + "\n\n<i>(Фото не найдено)</i>", 
-                    parse_mode=ParseMode.HTML, reply_markup=get_profile_edit_keyboard())
+            photo_file_id = profile.photos[0]
+            await callback.message.delete()
+            await bot.send_photo(
+                callback.from_user.id,
+                photo=photo_file_id,
+                caption=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=get_profile_edit_keyboard()
+            )
         else:
             await callback.message.edit_text(text, parse_mode=ParseMode.HTML, 
                 reply_markup=get_profile_edit_keyboard())
@@ -295,17 +289,18 @@ async def show_next_profile(callback: CallbackQuery, session: AsyncSession):
     
     await callback.message.delete()
     
-    if profile.photos and os.path.exists(profile.photos[0]):
-        photo = FSInputFile(profile.photos[0])
+    if profile.photos:
+        photo_file_id = profile.photos[0]
         await callback.bot.send_photo(
             callback.from_user.id,
-            photo=photo,
+            photo=photo_file_id,
             caption=text,
             parse_mode=ParseMode.HTML,
             reply_markup=get_search_action_keyboard(user.id)
         )
     else:
-        await callback.message.answer(
+        await callback.bot.send_message(
+            callback.from_user.id,
             text,
             parse_mode=ParseMode.HTML,
             reply_markup=get_search_action_keyboard(user.id)
@@ -398,11 +393,11 @@ async def start_rating(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.delete()
         
-        if profile.photos and os.path.exists(profile.photos[0]):
-            photo = FSInputFile(profile.photos[0])
+        if profile.photos:
+            photo_file_id = profile.photos[0]
             await callback.bot.send_photo(
                 callback.from_user.id,
-                photo=photo,
+                photo=photo_file_id,
                 caption=text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=get_rating_keyboard(target_user.id)

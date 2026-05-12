@@ -1,9 +1,7 @@
-import os
 import aiohttp
 import logging
 from typing import Optional
 from aiogram import Bot
-from aiogram.types import InputFile, FSInputFile
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,12 +13,6 @@ from app.database import async_session
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def download_photo(bot: Bot, file_id: str, user_id: int, photo_index: int) -> str:
-    file = await bot.get_file(file_id)
-    file_path = f"photos/{user_id}_{photo_index}.jpg"
-    
-    await bot.download_file(file.file_path, file_path)
-    return file_path
 
 def get_psl_description(score: int) -> str:
     return Config.PSL_SCALE.get(score, "Unknown")
