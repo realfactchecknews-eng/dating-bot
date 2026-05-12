@@ -52,13 +52,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 async def main():
-    # Создаем папку /app/data и .gitkeep файл
-    data_dir = Path("/app/data")
-    data_dir.mkdir(parents=True, exist_ok=True)
-    gitkeep_path = data_dir / ".gitkeep"
-    if not gitkeep_path.exists():
-        gitkeep_path.write_text("# Persistent storage marker\n")
-    
     await on_startup()
     await init_db()
     logger.info("Database initialized")
