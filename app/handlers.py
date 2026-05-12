@@ -24,14 +24,25 @@ from app.utils import (
     get_search_profiles, get_random_profile_for_rating, get_user_matches,
     is_admin, get_psl_description, get_appeal_description
 )
-from app.config import Config
+from app.config import Config, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 from app.database import async_session
 
 router = Router()
 logger = logging.getLogger(__name__)
 
+# Функция проверки режима технических работ
+async def check_maintenance(message: Message):
+    if MAINTENANCE_MODE and message.from_user.id not in Config.ADMIN_IDS:
+        await message.answer(MAINTENANCE_MESSAGE)
+        return True
+    return False
+
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
+    # Проверка режима технических работ
+    if await check_maintenance(message):
+        return
+        
     await state.clear()
     async with async_session() as session:
         user = await get_or_create_user(session, message.from_user.id, message.from_user.username)
@@ -1133,6 +1144,37 @@ async def start_rating(callback: CallbackQuery, state: FSMContext):
                 reply_markup=get_rating_keyboard(target_user.id)
             )
     await callback.answer()
+
+# Команда для технических работ (только для админа)
+@router.message(Command("maintenance"))
+async def cmd_maintenance(message: Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("⛔ Доступ запрещен!")
+        return
+    
+    global MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+    
+    if MAINTENANCE_MODE:
+        # Выключаем режим
+        MAINTENANCE_MODE = False
+        MAINTENANCE_MESSAGE = ""
+        await message.answer("✅ Режим технических работ выключен!")
+    else:
+        # Включаем режим на 5 минут
+        MAINTENANCE_MODE = True
+        MAINTENANCE_MESSAGE = (
+            "🔧 <b>Технические работы</b>\n\n"
+            "Бот временно недоступен.\n"
+            "⏰ Примерное время: 5 минут\n\n"
+            "Пожалуйста, подожди немного! 😊"
+        )
+        await message.answer("🔧 Режим технических работ включен на 5 минут!")
+        
+        # Автоматическое выключение через 5 минут
+        import asyncio
+        await asyncio.sleep(300)  # 5 минут
+        MAINTENANCE_MODE = False
+        MAINTENANCE_MESSAGE = ""
 
 @router.callback_query(F.data == "delete_profile")
 async def delete_profile(callback: CallbackQuery):

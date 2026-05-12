@@ -3,6 +3,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Глобальная переменная для режима технических работ
+MAINTENANCE_MODE = False
+MAINTENANCE_MESSAGE = ""
+
 class Config:
     BOT_TOKEN = os.getenv("BOT_TOKEN", "")
     ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "1031760975").split(",") if x]
