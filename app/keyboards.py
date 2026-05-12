@@ -101,8 +101,8 @@ def get_admin_keyboard():
     builder.button(text="🚫 Забанить", callback_data="admin_ban")
     builder.button(text="✅ Разбанить", callback_data="admin_unban")
     builder.button(text="📋 Список пользователей", callback_data="admin_users")
-    builder.button(text="� Репорты", callback_data="admin_reports")
-    builder.button(text="�🔙 Назад", callback_data="main_menu")
+    builder.button(text="🚨 Репорты", callback_data="admin_reports")
+    builder.button(text="🔙 Назад", callback_data="main_menu")
     builder.adjust(2, 2, 2, 2)
     return builder.as_markup()
 
