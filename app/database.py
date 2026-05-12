@@ -2,7 +2,21 @@ import os
 from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.engine.base import Engine
 from app.config import Config
+
+# Monkey patch to completely disable SQLAlchemy logging
+def _disabled_log_info(self, *args, **kwargs):
+    """Completely disabled logging to prevent RecursionError"""
+    pass
+
+def _disabled_log_error(self, *args, **kwargs):
+    """Completely disabled logging to prevent RecursionError"""
+    pass
+
+# Apply monkey patch
+Engine._log_info = _disabled_log_info
+Engine._log_error = _disabled_log_error
 
 Base = declarative_base()
 
