@@ -9,7 +9,8 @@ Base = declarative_base()
 engine = create_async_engine(
     Config.DATABASE_URL,
     echo=Config.DEBUG,
-    future=True
+    future=True,
+    connect_args={"server_settings": {"application_name": "dating_bot"}}
 )
 
 async_session = async_sessionmaker(
