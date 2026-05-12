@@ -248,7 +248,11 @@ async def edit_profile(callback: CallbackQuery, state: FSMContext):
 async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()  # Сбрасываем состояние чата
     if callback.message.photo:
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+            # Продолжаем даже если не удалось удалить
         await callback.message.answer(
             "Главное меню:",
             reply_markup=get_main_menu_keyboard(is_admin=is_admin(callback.from_user.id))
@@ -276,7 +280,11 @@ async def show_my_profile(callback: CallbackQuery, state: FSMContext):
         
         if profile.photos:
             photo_file_id = profile.photos[0]
+            try:
             await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+            # Продолжаем даже если не удалось удалить
             await bot.send_photo(
                 callback.from_user.id,
                 photo=photo_file_id,
@@ -610,7 +618,11 @@ async def show_next_profile(callback: CallbackQuery, session: AsyncSession):
     
     text = format_profile_text(profile, user)
     
-    await callback.message.delete()
+    try:
+            await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+            # Продолжаем даже если не удалось удалить
     
     if profile.photos:
         photo_file_id = profile.photos[0]
@@ -735,7 +747,11 @@ async def rate_user_from_search(callback: CallbackQuery, state: FSMContext):
         text = format_profile_text(profile, target_user)
         text += "\n\n<b>Оцени по шкале 1-10:</b>"
         
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+            # Продолжаем даже если не удалось удалить
         
         if profile.photos:
             photo_file_id = profile.photos[0]
@@ -806,7 +822,11 @@ async def start_rating(callback: CallbackQuery, state: FSMContext):
         text = format_profile_text(profile, target_user)
         text += "\n\n<b>Оцени по шкале 1-10:</b>"
         
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+            # Продолжаем даже если не удалось удалить
         
         if profile.photos:
             photo_file_id = profile.photos[0]
@@ -1072,6 +1092,17 @@ async def process_appeal_rating(callback: CallbackQuery, state: FSMContext):
                 select(User).where(User.telegram_id == callback.from_user.id)
             )
             user = user_result.scalar_one()
+            
+            # Проверяем существует ли уже рейтинг
+            existing_rating = await session.execute(
+                select(Rating).where(
+                    and_(Rating.rater_id == user.id, Rating.rated_id == target_id)
+                )
+            )
+            if existing_rating.scalar_one_or_none():
+                await callback.answer("Ты уже оценивал(а) этого пользователя!", show_alert=True)
+                await state.clear()
+                return
             
             rating = Rating(
                 rater_id=user.id,
@@ -1536,7 +1567,11 @@ async def continue_rating(callback: CallbackQuery, state: FSMContext):
         text = format_profile_text(profile, target_user)
         text += "\n\n<b>Оцени по шкале 1-10:</b>"
         
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+            # Продолжаем даже если не удалось удалить
         
         if profile.photos:
             photo_file_id = profile.photos[0]
