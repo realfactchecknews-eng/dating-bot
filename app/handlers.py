@@ -266,7 +266,7 @@ async def back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(F.data == "my_profile")
-async def show_my_profile(callback: CallbackQuery, state: FSMContext):
+async def show_my_profile(callback: CallbackQuery, state: FSMContext, bot: Bot):
     await state.clear()  # Сбрасываем состояние чата
     async with async_session() as session:
         profile = await get_profile_by_telegram_id(session, callback.from_user.id)
